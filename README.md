@@ -72,6 +72,75 @@ WishItemStatus: Inbox（未整理）
 | **予算管理コンテキスト** (Budget) | 月次予算・残高・購入記録・月次履歴ビュー | `Budget`, `PurchaseRecord` |
 | **衝動買い防止コンテキスト** (ImpulsePrevention) | Inboxの管理・レビューによるステータス遷移 | `WishItem`（ステータス遷移） |
 
+### コンテキストマップ
+
+3つのコンテキスト間の関係と統合パターン。
+
+```mermaid
+graph LR
+    subgraph WL["欲しいものコンテキスト\n(WishList)"]
+        WI["WishItem\n登録・管理・優先順位"]
+    end
+
+    subgraph IP["衝動買い防止コンテキスト\n(ImpulsePrevention)"]
+        inbox["Inbox管理\nレビュー → ステータス遷移"]
+    end
+
+    subgraph BG["予算管理コンテキスト\n(Budget)"]
+        budget["Budget / PurchaseRecord\n月次予算・残高・購入履歴"]
+    end
+
+    WL -->|"【U→D / Customer-Supplier】\nWishItemを参照\nACLでモデルを保護"| IP
+    IP -->|"【Published Language】\nItemPurchasedイベント\n→ PurchaseRecord生成"| BG
+    WL -->|"【Published Language】\nItemAddedイベント\n→ Inboxへ追加"| IP
+```
+
+**統合パターンの説明:**
+
+| 関係 | パターン | 理由 |
+|------|---------|------|
+| WishList → ImpulsePrevention | **Customer-Supplier + ACL** | WishListが上流（WishItemを所有）。ImpulsePrevention側はACLでWishListのモデルに引きずられないよう保護 |
+| WishList → ImpulsePrevention | **Published Language（ItemAdded）** | WishItem追加時にイベントを発行し、ImpulsePreventionがInboxへ取り込む |
+| ImpulsePrevention → Budget | **Published Language（ItemPurchased）** | 購入確定時にイベントを発行し、Budgetがpurchase記録・残高更新を行う |
+
+**設計上の判断:** WishItemのステータス（`WishItemStatus`）はImpulsePrevention文脈で定義するが、WishListコンテキストでも参照する。MVPではShared Kernelとして共有し、コンテキスト間の摩擦を最小化する。将来的にコンテキストが独立デプロイ単位になる場合は分離を検討する。
+
+---
+
+## 設計思想
+
+このプロジェクトは **DDD（ドメイン駆動設計）** と **Clean Architecture** を組み合わせた設計を採用する。二つは補完関係にある。
+
+| | 役割 | 問いかけ |
+|---|---|---|
+| **DDD** | 何をモデリングするか | 「このビジネスルールはどのオブジェクトが持つべきか？」 |
+| **Clean Architecture** | どう層を分けるか | 「このコードはどのレイヤーに属するか？依存の方向は正しいか？」 |
+
+### 依存の方向（最重要ルール）
+
+```
+Presentation（Axum handlers）
+      ↓
+Application（Use Cases）
+      ↓
+Domain（Entities / Value Objects / Repository traits）
+      ↑
+Infrastructure（SQLx / 外部API）
+```
+
+- **依存は常に内側（Domain）へ向かう**
+- Domain層はRustの標準ライブラリのみに依存。AxumもSQLxも知らない
+- Infrastructure層がDomain層のtraitをimplする（依存逆転の原則）
+
+### レイヤーの責務
+
+| レイヤー | 責務 | 持っていいもの |
+|---|---|---|
+| **Domain** | ビジネスルールとモデル | Entity, Value Object, Aggregate, Repository trait, Domain Event |
+| **Application** | ユースケースの調整 | Use Case, Application Service, DTO |
+| **Infrastructure** | 外部システムとの接続 | Repository impl（SQLx）, 外部APIクライアント |
+| **Presentation** | HTTPの入出力 | Handler（薄いラッパーのみ）, Request/Response型 |
+
 ---
 
 ## 技術スタック
@@ -80,6 +149,6 @@ WishItemStatus: Inbox（未整理）
 - **Frontend**: React + TypeScript (Vite)
 - **DB**: PostgreSQL
 - **Infra**: Fly.io
-- **Architecture**: Clean Architecture + DDD
+- **Architecture**: DDD + Clean Architecture
 
 詳細な設計方針は [hoshika-roadmap.md](./hoshika-roadmap.md) を参照。
