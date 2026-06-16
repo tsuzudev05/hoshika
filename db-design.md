@@ -163,7 +163,8 @@ CREATE TABLE wish_items (
     --          ↑ categories テーブルの id を参照する外部キー
     status      wish_item_status  NOT NULL DEFAULT 'Inbox',
     --          ↑ 上で定義したENUM型。「Inbox以外のステータスで作成する」ことが不可能になる
-    memo        TEXT              NOT NULL DEFAULT '',
+    memo        TEXT CHECK (memo IS NULL OR memo <> ''),
+    --          ↑ NULL = メモなし。空文字禁止（Rust側で Option<String> の Some は必ず非空文字列）
     added_at    TIMESTAMPTZ       NOT NULL DEFAULT now(),
     --          ↑ TIMESTAMPTZ = タイムゾーン付きの日時型。now() で現在時刻が入る
     updated_at  TIMESTAMPTZ       NOT NULL DEFAULT now()
@@ -198,7 +199,7 @@ CREATE TRIGGER wish_items_updated_at
 |------|------|------|
 | `price` の型 | `BIGINT`（円単位の整数） | 日本円は小数を持たないため `DECIMAL` / `NUMERIC` 不要 |
 | `status` の型 | PostgreSQL `ENUM` | 許可外のステータスは DB レベルで弾く。Rustの `enum WishItemStatus` と対称性を持たせる |
-| `memo` の NULL | `NOT NULL DEFAULT ''` で NULL を排除 | Rust側で `Option<String>` ではなく `Memo(String)` として扱うため |
+| `memo` の NULL | NULL 許容 + 空文字禁止（`Option<String>`） | メモは任意項目。`None` = なし、`Some(s)` は必ず非空文字列。`CHECK (memo IS NULL OR memo <> '')` でDBも担保 |
 | `status` の初期値 | `DEFAULT 'Inbox'` | 「新規作成時は必ず Inbox」という不変条件をDBでも担保 |
 | ステータス遷移ルール | CHECK制約では表現できないのでアプリ層で担保 | `Inbox → NextToBuy` のような「前の値に依存する遷移」はDBのCHECK制約では書けない |
 
@@ -258,7 +259,8 @@ CREATE TABLE purchase_records (
     --            ↑ どの WishItem を買ったか
     actual_price  BIGINT      NOT NULL CHECK (actual_price >= 0),
     --            ↑ wish_items.price（希望価格）とは別の列！実際に払った金額
-    memo          TEXT        NOT NULL DEFAULT '',
+    memo          TEXT CHECK (memo IS NULL OR memo <> ''),
+    --            ↑ NULL = メモなし。wish_items.memo と同じ方針（空文字禁止）
     purchased_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
