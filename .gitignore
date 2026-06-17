@@ -2,4 +2,7 @@
 zenn-articles/
 /target
 .env
+.devcontainer/.env
 *.pem
+frontend/node_modules/
+frontend/dist/
