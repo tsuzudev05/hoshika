@@ -45,17 +45,16 @@
     }
   },
 
-  "postCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y postgresql-client && cargo build 2>/dev/null || true && cd frontend && npm install 2>/dev/null || true",
+  "postCreateCommand": {
+    "apt":      "sudo apt-get update -qq && sudo apt-get install -y postgresql-client",
+    "rust":     "cargo build 2>/dev/null || true",
+    "frontend": "cd /workspace/frontend && npm install 2>/dev/null || true"
+  },
 
   "forwardPorts": [3000, 5173],
 
   "portsAttributes": {
     "3000": { "label": "API (Axum)" },
     "5173": { "label": "Frontend (Vite)" }
-  },
-
-  "remoteEnv": {
-    "DATABASE_URL": "postgresql://hoshika:hoshika@db:5432/hoshika",
-    "PGPASSWORD": "hoshika"
   }
 }

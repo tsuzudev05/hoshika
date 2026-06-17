@@ -6,11 +6,13 @@ services:
     command: sleep infinity
     environment:
       DATABASE_URL: postgresql://hoshika:hoshika@db:5432/hoshika
+      PGPASSWORD: hoshika  # psql コマンド用（開発環境のみ）
     depends_on:
       db:
         condition: service_healthy
 
   db:
+    # postgres:16-alpine — メジャーバージョン 16 に固定（マイナーは自動更新）
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
