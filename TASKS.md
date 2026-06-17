@@ -15,10 +15,16 @@
   - ItemAdded / ItemReviewed / ItemMovedToNextToBuy / ItemArchived / ItemPurchased
   - BudgetSet / PurchaseRecorded / BudgetExceeded
   - WaitingPeriodは見送り（タイマー強制ではなくレビュー行為で防止する設計のため）
-- [ ] **DB設計** - ドメインモデルからテーブル設計を導出する　due 6/25
-  - wish_items / budgets / categories
+- [x] **DB設計** - ドメインモデルからテーブル設計を導出する　due 6/25　完了（2026-06-14）
+  - wish_items / budgets / categories / purchase_records
   - 注意: テーブルの都合でエンティティを歪めない
-- [ ] **開発環境構築** - DevContainer（Rust / React+TS / PostgreSQL / Fly.io）　due 6/28
+  - 詳細: [db-design.md](./db-design.md) 参照
+- [ ] **開発環境構築** - DevContainer（Rust / React+TS / PostgreSQL / Fly.io）　due 6/28　完了（2026-06-15）
+  - `.devcontainer/devcontainer.json` + `docker-compose.yml`（PostgreSQL）
+  - `Cargo.toml`（axum / sqlx / uuid / thiserror 等）
+  - `src/` Clean Architectureレイヤー構造（domain / application / infrastructure / presentation）
+  - `frontend/`（Vite + React + TypeScript + TanStack Query）
+  - `migrations/20260615000001_initial_schema.sql`（db-design.mdのスキーマ）
 - [ ] **GitHub repo作成・CI/CD基礎設定** - GitHub Actions　due 6/30
 
 ### 学習（並行）
@@ -29,6 +35,13 @@
   - 章ごとに「なぜそうするか」を自分の言葉でメモする
 
 ## Waiting On
+
+- [ ] **DB設計の壁打ち** - db-design.mdをもとにトレードオフを議論する　due 6/16
+  - `balance` のキャッシュ vs 都度集計
+  - `category_id NOT NULL` のカテゴリ削除問題
+  - `wish_item_status` をENUMにするトレードオフ
+  - ステータス遷移履歴をどこで持つか
+  - 購入済み `WishItem` の削除制約問題
 
 ## Someday
 
@@ -49,6 +62,7 @@
 
 ## Done
 
+- [x] **DB設計** - ドメインモデルからテーブル設計を導出する　完了（2026-06-14）
 - [x] **ユビキタス言語の定義** - 用語集（Glossary）をREADMEに書く　完了（2026-06-12）
 - [x] **コンテキストマップのスケッチ** - 3コンテキストの境界と関係を図にする　完了（2026-06-12）
 - [x] **ドメインモデル設計** - エンティティ・値オブジェクト・集約を識別する　完了（2026-06-13）
