@@ -4,9 +4,7 @@ services:
     volumes:
       - ..:/workspace:cached
     command: sleep infinity
-    environment:
-      DATABASE_URL: postgresql://hoshika:hoshika@db:5432/hoshika
-      PGPASSWORD: hoshika  # psql コマンド用（開発環境のみ）
+    env_file: .env
     depends_on:
       db:
         condition: service_healthy
@@ -15,10 +13,7 @@ services:
     # postgres:16-alpine — メジャーバージョン 16 に固定（マイナーは自動更新）
     image: postgres:16-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: hoshika
-      POSTGRES_PASSWORD: hoshika
-      POSTGRES_DB: hoshika
+    env_file: .env
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:

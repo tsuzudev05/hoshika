@@ -17,7 +17,16 @@
 
 ## セットアップ
 
-### 1. DevContainer を起動する
+### 1. 環境変数ファイルを作成する
+
+```bash
+bash scripts/dev-setup.sh
+```
+
+`.env.example` → `.env` と `.devcontainer/.env.example` → `.devcontainer/.env` をコピーします。
+`.devcontainer/.env` は Git 管理外（`.gitignore` に記載済み）です。パスワードを変更する場合はこのファイルを編集してください。
+
+### 2. DevContainer を起動する
 
 ```
 IDE で「Reopen in Container」を実行
@@ -29,16 +38,6 @@ IDE で「Reopen in Container」を実行
 - Rust / Node 20 / GitHub CLI のインストール
 - `cargo build`（依存クレートのダウンロード）
 - `npm install`（フロントエンド依存）
-
-### 2. 環境変数を設定する
-
-コンテナ内で `devcontainer.json` の `remoteEnv` により `DATABASE_URL` は自動で設定済みです。
-
-ローカル（コンテナ外）で動かす場合は `.env` を作成します：
-
-```bash
-cp .env.example .env
-```
 
 ---
 
@@ -196,4 +195,37 @@ Bind for 0.0.0.0:5432 failed: port is already allocated
 
 ```bash
 docker compose -f .devcontainer/docker-compose.yml down
+```
+
+---
+
+### psql: command not found
+
+DevContainer 起動直後に `postCreateCommand` がまだ実行中の場合があります。数秒待ってから再試行してください。それでも解決しない場合：
+
+```bash
+sudo apt-get install -y postgresql-client
+```
+
+---
+
+### `Did not find any relations`（psql で \dt が空）
+
+マイグレーションはサーバー起動時に自動適用されます。一度 `cargo run` でサーバーを起動してから再確認してください。
+
+```bash
+cargo run
+# 別ターミナルで
+psql -h db -U hoshika hoshika -c '\dt'
+```
+
+---
+
+### GitHub へ push できない（Password authentication is not supported）
+
+DevContainer 内では HTTPS 認証に Personal Access Token が使えません。GitHub CLI で認証してください（一度だけ必要）：
+
+```bash
+gh auth login        # ブラウザでデバイスコードを認証
+gh auth setup-git    # git の認証ヘルパーに登録
 ```
