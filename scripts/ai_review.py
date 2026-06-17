@@ -1,103 +1,323 @@
-import os
-import json
-import sys
-from pathlib import Path
-from groq import Groq
-import urllib.request
-import urllib.error
+#!/usr/bin/env python3
+"""
+ai_review.py — PR diff を Groq（Llama 3.3 70B）に渡してコードレビューを生成し、
+               GitHub PR にコメントとして投稿するスクリプト。
 
-MONTHLY_USAGE_FILE = ".monthly-usage.json"
-MAX_DIFF_CHARS = 60000
+Groq 無料枠: 14,400 req/日・30 RPM（クレジットカード不要）
+
+Usage (GitHub Actions から呼ばれる):
+    python scripts/ai_review.py
+
+必要な環境変数:
+    GROQ_API_KEY   Groq API キー（GitHub Secret に登録）
+    GITHUB_TOKEN   GitHub Actions が自動で提供
+    PR_NUMBER      PR 番号
+    REPO           "owner/repo" 形式
+    PR_TITLE       PR タイトル（プロンプトのコンテキスト用）
+    BASE_BRANCH    マージ先ブランチ名
+    HEAD_BRANCH    PR のブランチ名
+"""
+
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+
+from groq import Groq
+
+# ─── 設定 ────────────────────────────────────────────────────────────────────
+
+DIFF_FILE = "diff.txt"
+USAGE_FILE = ".monthly-usage.json"
+MAX_DIFF_CHARS = 25_000  # Groq 無料枠 12,000 TPM 制限に合わせた上限
 MODEL = "llama-3.3-70b-versatile"
 
+PRICE_INPUT_PER_MTOK = 0.59
+PRICE_OUTPUT_PER_MTOK = 0.79
 
-def load_monthly_usage():
-    if Path(MONTHLY_USAGE_FILE).exists():
-        with open(MONTHLY_USAGE_FILE) as f:
-            return json.load(f)
-    return {"total_tokens": 0, "runs": 0}
-
-
-def save_monthly_usage(usage):
-    with open(MONTHLY_USAGE_FILE, "w") as f:
-        json.dump(usage, f)
+MONTHLY_BUDGET_USD = 1.00
+BUDGET_WARN_RATIO = 0.80
 
 
-def post_pr_comment(token, repo, pr_number, body):
-    if not pr_number:
-        print("No PR number, skipping comment")
-        return
-    url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
-    data = json.dumps({"body": body}).encode()
-    req = urllib.request.Request(url, data=data, method="POST")
-    req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/vnd.github+json")
-    with urllib.request.urlopen(req) as resp:
-        print(f"Comment posted: {resp.status}")
+# ─── コスト計算 ──────────────────────────────────────────────────────────────
 
 
-def main():
-    groq_api_key = os.environ["GROQ_API_KEY"]
-    github_token = os.environ["GITHUB_TOKEN"]
-    pr_number = os.environ.get("PR_NUMBER", "")
-    repo = os.environ.get("REPO", "")
-    pr_title = os.environ.get("PR_TITLE", "")
-    base_branch = os.environ.get("BASE_BRANCH", "main")
-    head_branch = os.environ.get("HEAD_BRANCH", "")
+def calc_cost(input_tokens: int, output_tokens: int) -> float:
+    return (
+        input_tokens / 1_000_000 * PRICE_INPUT_PER_MTOK
+        + output_tokens / 1_000_000 * PRICE_OUTPUT_PER_MTOK
+    )
 
-    diff = Path("diff.txt").read_text(encoding="utf-8", errors="replace")
+
+# ─── 月次使用量の永続化 ──────────────────────────────────────────────────────
+
+
+def current_month() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def load_monthly_usage() -> dict:
+    default = {
+        "month": current_month(),
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+    }
+    if not os.path.exists(USAGE_FILE):
+        return default
+    try:
+        with open(USAGE_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("month") != current_month():
+            print(
+                f"[info] 月が変わりました（{data.get('month')} → {current_month()}）。使用量をリセットします。"
+            )
+            return default
+        return data
+    except (json.JSONDecodeError, KeyError):
+        return default
+
+
+def save_monthly_usage(usage: dict) -> None:
+    with open(USAGE_FILE, "w", encoding="utf-8") as f:
+        json.dump(usage, f, ensure_ascii=False, indent=2)
+    print(
+        f"[info] 月次使用量を保存しました: ${usage['cost_usd']:.4f} / ${MONTHLY_BUDGET_USD:.2f}"
+    )
+
+
+def check_budget(usage: dict) -> tuple[bool, str]:
+    current_cost = usage["cost_usd"]
+    remaining = MONTHLY_BUDGET_USD - current_cost
+    ratio = current_cost / MONTHLY_BUDGET_USD
+
+    if ratio >= 1.0:
+        return False, (
+            f"⚠️ **月次コスト上限に達しました**（${current_cost:.4f} / ${MONTHLY_BUDGET_USD:.2f}）。"
+            "AIレビューをスキップしました。来月リセットされます。"
+        )
+
+    warn = ""
+    if ratio >= BUDGET_WARN_RATIO:
+        warn = (
+            f"\n\n> ⚠️ 今月の使用コスト: **${current_cost:.4f}** / ${MONTHLY_BUDGET_USD:.2f} "
+            f"（残り ${remaining:.4f}）"
+        )
+    return True, warn
+
+
+# ─── プロンプト ───────────────────────────────────────────────────────────────
+
+SYSTEM_PROMPT = """あなたは DDD（ドメイン駆動設計）・Rust・React+TypeScript・PostgreSQL に詳しいシニアエンジニアです。
+Pull Request の diff をレビューし、以下の観点で日本語でフィードバックしてください。
+
+## プロジェクト概要
+「ホシカ」— 欲しいものリスト × 予算管理アプリ（衝動買い防止）
+- アーキテクチャ: DDD + Clean Architecture（Presentation → Application → Domain ← Infrastructure）
+- バックエンド: Rust（Axum + SQLx）
+- フロントエンド: React + TypeScript（Vite + TanStack Query）
+- DB: PostgreSQL（sqlx migrate でマイグレーション管理）
+- 現フェーズ: Phase 01（ドメインモデリング）完了 → Phase 02（ドメイン層・アプリケーション層の実装）
+
+## ドメインの主要概念
+- 集約: WishItem（集約ルート）、Budget（集約ルート）
+- 値オブジェクト: Price / Category / WishItemStatus / Memo / YearMonth
+- 内部エンティティ: PurchaseRecord（Budget 集約内）
+- ドメインイベント: ItemAdded / ItemReviewed / ItemPurchased / BudgetExceeded 等
+- 重要ルール: 新規 WishItem は必ず Inbox → ユーザーのレビュー行為で NextToBuy / OnHold / Archived に遷移。Archived / Purchased は終端状態
+
+## レビュー観点
+- コードの正確性・バグの可能性
+- DDD / クリーンアーキテクチャの原則への準拠
+  - Domain 層が Axum / SQLx に依存していないこと（依存の方向は常に内側へ）
+  - Repository は trait として Domain 層に定義し、Infrastructure 層で impl されているか
+  - Use Case は HTTP を知らないか（引数・戻り値は DTO のみ）
+  - ドメインの不変条件（Invariant）がアプリ層・DB 制約で守られているか
+- Rust のイディオムへの準拠（所有権・エラーハンドリング・型安全性・thiserror / anyhow の使い方）
+- セキュリティリスク（SQL インジェクション・認証情報の露出等）
+- パフォーマンス上の懸念
+- テストの考慮事項（cargo test でドメイン層が DB・Axum なしで通るか）
+- 改善提案（必須ではないが有益なもの）
+
+## 出力フォーマット（Markdown）
+
+## 🤖 AI コードレビュー（Llama 3.3 70B / Groq）
+
+### 概要
+（PR で何をしているかを 2〜3 行で要約）
+
+### ✅ 良い点
+（箇条書き）
+
+### 🔴 要修正
+（深刻な問題があれば記載。なければ「なし」）
+
+### 🟡 改善提案
+（任意だが推奨する変更点）
+
+### 📊 総評
+（一言でマージ可否の判断：LGTM / 要修正 / 要確認）
+
+---
+*このレビューは Llama 3.3 70B（Groq）によって自動生成されました。*
+"""
+
+
+# ─── diff 読み込み ────────────────────────────────────────────────────────────
+
+
+def load_diff() -> str:
+    if not os.path.exists(DIFF_FILE):
+        print(f"[error] {DIFF_FILE} が見つかりません", file=sys.stderr)
+        sys.exit(1)
+
+    with open(DIFF_FILE, encoding="utf-8", errors="replace") as f:
+        diff = f.read()
+
     if not diff.strip():
-        print("No diff found, skipping review")
-        return
+        print("[info] diff が空です（変更なし）。スキップします。")
+        sys.exit(0)
 
     if len(diff) > MAX_DIFF_CHARS:
-        diff = diff[:MAX_DIFF_CHARS] + "\n\n... (diff truncated)"
+        print(
+            f"[warn] diff が {len(diff)} 文字で上限 {MAX_DIFF_CHARS} を超えています。切り詰めます。"
+        )
+        diff = diff[:MAX_DIFF_CHARS] + "\n\n... (diff が長いため省略されました)"
 
-    client = Groq(api_key=groq_api_key)
+    return diff
 
-    prompt = f"""あなたは熟練したコードレビュアーです。以下のgit diffをレビューしてください。
 
-PR タイトル: {pr_title}
-ブランチ: {head_branch} → {base_branch}
+# ─── Groq API 呼び出し ────────────────────────────────────────────────────────
 
-以下の観点でレビューしてください：
-- バグ・正確性の問題
-- セキュリティの脆弱性
-- パフォーマンスの問題
-- コードの可読性・保守性
-- エッジケースの考慮漏れ
 
-指摘は日本語で、簡潔かつ具体的に記述してください。問題がなければその旨も明記してください。
+def generate_review(
+    diff: str, pr_title: str, base: str, head: str
+) -> tuple[str, int, int]:
+    """
+    Groq（Llama 3.3 70B）を呼び出してレビューを生成する。
+    戻り値: (レビュー本文, input_tokens, output_tokens)
+    """
+    client = Groq(api_key=sanitize_api_key(os.environ["GROQ_API_KEY"]))
 
-Diff:
+    user_message = f"""以下の Pull Request をレビューしてください。
+
+**PR タイトル**: {pr_title}
+**ブランチ**: `{head}` → `{base}`
+
 ```diff
 {diff}
-```"""
+```
+"""
 
-    response = client.chat.completions.create(
+    print(f"[info] {MODEL}（Groq）にリクエスト中...")
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
         model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,
+        max_tokens=2048,
     )
 
-    review_text = response.choices[0].message.content
-    total_tokens = response.usage.total_tokens
+    review = chat_completion.choices[0].message.content
+    input_tokens = chat_completion.usage.prompt_tokens
+    output_tokens = chat_completion.usage.completion_tokens
+    cost = calc_cost(input_tokens, output_tokens)
 
+    print(
+        f"[info] 完了 — input: {input_tokens} tok / output: {output_tokens} tok / 参考コスト: ${cost:.4f}"
+    )
+    return review, input_tokens, output_tokens
+
+
+# ─── GitHub コメント投稿 ──────────────────────────────────────────────────────
+
+
+def post_github_comment(repo: str, pr_number: str, body: str) -> None:
+    token = os.environ["GITHUB_TOKEN"]
+    url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
+    data = json.dumps({"body": body}).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read())
+            print(f"[info] コメント投稿完了: {result['html_url']}")
+    except urllib.error.HTTPError as e:
+        print(
+            f"[error] GitHub API エラー: {e.code} {e.read().decode()}", file=sys.stderr
+        )
+        sys.exit(1)
+
+
+# ─── ユーティリティ ───────────────────────────────────────────────────────────
+
+
+def sanitize_api_key(raw: str) -> str:
+    cleaned = re.sub(r"[^\x21-\x7E]", "", raw)
+    if not cleaned:
+        print("[error] GROQ_API_KEY が空か、印字可能文字を含みません", file=sys.stderr)
+        sys.exit(1)
+    if len(raw) != len(cleaned):
+        print(
+            f"[info] API キーを sanitize しました（元: {len(raw)} 文字 → 後: {len(cleaned)} 文字）"
+        )
+    return cleaned
+
+
+# ─── メイン ──────────────────────────────────────────────────────────────────
+
+
+def main() -> None:
+    required_env = ["GROQ_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", "REPO"]
+    missing = [k for k in required_env if not os.environ.get(k)]
+    if missing:
+        print(f"[error] 環境変数が不足しています: {missing}", file=sys.stderr)
+        sys.exit(1)
+
+    pr_title = os.environ.get("PR_TITLE", "（タイトルなし）")
+    base = os.environ.get("BASE_BRANCH", "main")
+    head = os.environ.get("HEAD_BRANCH", "feature")
+    pr_number = os.environ["PR_NUMBER"]
+    repo = os.environ["REPO"]
+
+    # 1. 月次コスト確認
     usage = load_monthly_usage()
-    usage["total_tokens"] += total_tokens
-    usage["runs"] += 1
+    can_run, budget_msg = check_budget(usage)
+    if not can_run:
+        print(f"[warn] 予算超過のためスキップします")
+        post_github_comment(repo, pr_number, budget_msg)
+        sys.exit(0)
+
+    # 2. diff を読み込む
+    diff = load_diff()
+    print(f"[info] diff: {len(diff)} 文字")
+
+    # 3. Groq でレビュー生成
+    review, input_tokens, output_tokens = generate_review(diff, pr_title, base, head)
+
+    # 4. 月次使用量を更新・保存
+    cost = calc_cost(input_tokens, output_tokens)
+    usage["input_tokens"] += input_tokens
+    usage["output_tokens"] += output_tokens
+    usage["cost_usd"] += cost
     save_monthly_usage(usage)
-    print(f"Tokens used: {total_tokens} (monthly total: {usage['total_tokens']})")
 
-    comment_body = (
-        f"## 🤖 AI Code Review\n\n"
-        f"{review_text}\n\n"
-        f"---\n"
-        f"*Powered by Groq ({MODEL}) · 今月の累計トークン: {usage['total_tokens']:,}*"
-    )
+    # 5. 予算警告をレビューに付加
+    _, warn_msg = check_budget(usage)
+    full_review = review + warn_msg
 
-    post_pr_comment(github_token, repo, pr_number, comment_body)
+    # 6. GitHub PR にコメント投稿
+    post_github_comment(repo, pr_number, full_review)
 
 
 if __name__ == "__main__":
