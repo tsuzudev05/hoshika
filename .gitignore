@@ -3,3 +3,5 @@ zenn-articles/
 /target
 .env
 *.pem
+frontend/node_modules/
+frontend/dist/

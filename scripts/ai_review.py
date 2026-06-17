@@ -32,7 +32,7 @@ from groq import Groq
 
 DIFF_FILE = "diff.txt"
 USAGE_FILE = ".monthly-usage.json"
-MAX_DIFF_CHARS = 25_000  # Groq 無料枠 12,000 TPM 制限に合わせた上限
+MAX_DIFF_CHARS = 8_000  # Groq 無料枠 12,000 TPM（system prompt が ~6000 tokens 消費するため余裕を持たせる）
 MODEL = "llama-3.3-70b-versatile"
 
 PRICE_INPUT_PER_MTOK = 0.59
