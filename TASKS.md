@@ -34,15 +34,6 @@
 - [ ] **「Clean Architecture」読み進める** - 原則・考え方を先に頭に入れる
   - 章ごとに「なぜそうするか」を自分の言葉でメモする
 
-## Waiting On
-
-- [ ] **DB設計の壁打ち** - db-design.mdをもとにトレードオフを議論する　due 6/16
-  - `balance` のキャッシュ vs 都度集計
-  - `category_id NOT NULL` のカテゴリ削除問題
-  - `wish_item_status` をENUMにするトレードオフ
-  - ステータス遷移履歴をどこで持つか
-  - 購入済み `WishItem` の削除制約問題
-
 ## Someday
 
 ### Phase 02 · ドメイン層・アプリケーション層（7月〜）　※ DDD + Clean Architecture
@@ -61,7 +52,12 @@
 - [ ] **ドメイン層のテスト整備** - cargo testだけで通るか確認（DBもAxumも不要）
 
 ## Done
-
+- [x] **DB設計の壁打ち** - db-design.mdをもとにトレードオフを議論する　due 6/16
+  - `balance` のキャッシュ vs 都度集計
+  - `category_id NOT NULL` のカテゴリ削除問題
+  - `wish_item_status` をENUMにするトレードオフ
+  - ステータス遷移履歴をどこで持つか
+  - 購入済み `WishItem` の削除制約問題
 - [x] **DB設計** - ドメインモデルからテーブル設計を導出する　完了（2026-06-14）
 - [x] **ユビキタス言語の定義** - 用語集（Glossary）をREADMEに書く　完了（2026-06-12）
 - [x] **コンテキストマップのスケッチ** - 3コンテキストの境界と関係を図にする　完了（2026-06-12）
