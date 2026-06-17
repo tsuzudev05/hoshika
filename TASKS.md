@@ -19,7 +19,7 @@
   - wish_items / budgets / categories / purchase_records
   - 注意: テーブルの都合でエンティティを歪めない
   - 詳細: [db-design.md](./db-design.md) 参照
-- [ ] **開発環境構築** - DevContainer（Rust / React+TS / PostgreSQL / Fly.io）　due 6/28　完了（2026-06-15）
+- [x] **開発環境構築** - DevContainer（Rust / React+TS / PostgreSQL / Fly.io）　due 6/28　完了（2026-06-18）
   - `.devcontainer/devcontainer.json` + `docker-compose.yml`（PostgreSQL）
   - `Cargo.toml`（axum / sqlx / uuid / thiserror 等）
   - `src/` Clean Architectureレイヤー構造（domain / application / infrastructure / presentation）
@@ -52,6 +52,8 @@
 - [ ] **ドメイン層のテスト整備** - cargo testだけで通るか確認（DBもAxumも不要）
 
 ## Done
+
+- [x] **開発環境構築** - DevContainer（Rust / React+TS / PostgreSQL / Fly.io）　due 6/28　完了（2026-06-18）
 - [x] **DB設計の壁打ち** - db-design.mdをもとにトレードオフを議論する　due 6/16
   - `balance` のキャッシュ vs 都度集計
   - `category_id NOT NULL` のカテゴリ削除問題
