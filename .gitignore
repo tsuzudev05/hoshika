@@ -1,0 +1,5 @@
+.claude/
+zenn-articles/
+/target
+.env
+*.pem

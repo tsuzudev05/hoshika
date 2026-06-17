@@ -11,8 +11,11 @@
 ## 開発ロードマップ
 > 2026年6月 → 11月リリース
 >
-> **真の目的**: DDDとクリーンアーキテクチャを体得する。
+> **真の目的**: DDD + Clean Architectureを体得する。
 > 動くものを作ることより、**変更容易性を担保した頑強な設計**を習得することを最優先とする。
+>
+> - **DDD** が答える問い: 何をモデリングするか・ビジネスルールをどこに書くか
+> - **Clean Architecture** が答える問い: 依存の方向・レイヤーの責務・差し替え容易性
 
 ---
 
@@ -50,29 +53,38 @@
 
 ## Phase 01 · 6月　ドメインモデリング・設計
 
-> **このフェーズで学ぶこと**: コードを書く前にドメインを理解する習慣。DDDの出発点は「言語の統一」
+> **このフェーズで学ぶこと**:
+> - **DDD視点**: コードを書く前にドメインを理解する習慣。DDDの出発点は「言語の統一」
+> - **Clean Architecture視点**: レイヤーの責務と依存ルールをコードを書く前に明確にする
 
-### ユビキタス言語の定義
-- 「欲しいもの」をなんと呼ぶか決める（`WishItem`? `DesiredItem`?）
+### ユビキタス言語の定義 ✅
+- 「欲しいもの」をなんと呼ぶか決める（→ `WishItem` に決定）
 - 「衝動買い防止」はどういうドメインルールか言語化する
 - 用語集（Glossary）をREADMEに書く
 
-### 境界づけられたコンテキストの識別
+### 境界づけられたコンテキストの識別 ✅
 - **欲しいものコンテキスト** — アイテムの登録・管理・優先順位
 - **予算管理コンテキスト** — 月次予算・残高・購入記録
 - **衝動買い防止コンテキスト** — 「本当に欲しいか？」チェックフロー
-- コンテキスト間の関係（Context Map）をスケッチする
+- コンテキスト間の関係（Context Map）をスケッチ済み（Customer-Supplier / Published Language / ACL）
+
+### Clean Architectureのレイヤー定義
+- **Domain層の範囲を決める** — AxumもSQLxも依存しないRustコードのみ
+- **Application層の責務を決める** — ユースケースはHTTPを知らない。引数・戻り値はDTO
+- **Infrastructure層の責務を決める** — Repository traitのimplをここに閉じ込める
+- **依存逆転の確認** — Domain層がRepository traitを定義、Infrastructure層がimplする
 
 ### ドメインモデル設計
 - **エンティティの識別** — 同一性（ID）で追跡されるもの（例: WishItem, Budget）
 - **値オブジェクトの識別** — 値で比較されるもの（例: Price, Category, WaitingPeriod）
-- **集約の設計** — トランザクション一貫性の境界を決める（例: WishItemとそのCheckフローは同じ集約か？）
-- **ドメインイベントの洗い出し** — 何が起きたかを記録（例: `ItemAdded`, `BudgetExceeded`, `ImpulseBuyPrevented`）
+- **集約の設計** — トランザクション一貫性の境界を決める
+- **Repository traitの設計** — `find_by_id`, `save`, `delete`（DBを知らないインターフェース）
+- **ドメインイベントの洗い出し** — 何が起きたかを記録（例: `ItemAdded`, `BudgetExceeded`）
 
 ### DB設計（ドメインモデルから導出する）
 - ドメインモデルが先、テーブル設計はその写像
 - PostgreSQLスキーマ設計（`wish_items`, `budgets`, `categories`）
-- 注意: 「テーブルの都合でエンティティを歪めない」
+- 注意: 「テーブルの都合でエンティティを歪めない」（CA違反のサイン）
 
 ### 環境構築・リポジトリ整備
 - Rust / React+TS / PostgreSQL / Fly.io の構成を DevContainer に整備
@@ -83,62 +95,77 @@
 
 ## Phase 02 · 7月　ドメイン層・アプリケーション層（Rust）
 
-> **このフェーズで学ぶこと**: フレームワークに依存しないビジネスロジックの書き方。テストのしやすさが設計の良さを測るバロメーター
+> **このフェーズで学ぶこと**:
+> - **DDD視点**: フレームワークに依存しないビジネスロジックの書き方
+> - **Clean Architecture視点**: 依存逆転の原則をコードで体現する。テストのしやすさが設計の良さを測るバロメーター
 
-### ディレクトリ構成（Clean Architecture）
+### ディレクトリ構成（DDD + Clean Architecture）
 
 ```
 src/
-├── domain/
-│   ├── entities/         # エンティティ・集約ルート
-│   ├── value_objects/    # 値オブジェクト
-│   ├── repositories/     # traitのみ（インターフェース定義）
-│   ├── services/         # ドメインサービス（複数集約をまたぐロジック）
-│   └── events/           # ドメインイベント
-├── application/
-│   └── use_cases/        # ユースケース（アプリケーションサービス）
-├── infrastructure/
-│   ├── db/               # SQLxによるリポジトリimpl
-│   └── auth/             # JWT実装
-└── presentation/
-    └── handlers/         # Axumハンドラー（薄いラッパー）
+├── domain/                    # ← 最内層。外部に一切依存しない
+│   ├── entities/              #   WishItem, Budget（IDで追跡）
+│   ├── value_objects/         #   Price, Category, WishItemStatus（値で比較）
+│   ├── repositories/          #   traitのみ（DBを知らないインターフェース）
+│   ├── services/              #   BudgetService（複数集約をまたぐドメインロジック）
+│   └── events/                #   ItemAdded, ItemPurchased, BudgetExceeded
+├── application/               # ← ユースケース層。Domainを操作する手順書
+│   ├── use_cases/             #   AddWishItem, CheckImpulseBuy, GetBudgetStatus
+│   └── dto/                   #   HTTPを知らない入出力型
+├── infrastructure/            # ← 外部依存の隔離ゾーン
+│   ├── db/                    #   PostgresWishItemRepository（Repository traitのimpl）
+│   └── auth/                  #   JwtAuthService
+└── presentation/              # ← HTTPの薄いラッパー
+    └── handlers/              #   Axumハンドラー（parse → usecase → serialize のみ）
 ```
 
-### ドメイン層の実装
+**依存ルールの確認チェックリスト:**
+- [ ] `domain/` が `use axum` または `use sqlx` していない
+- [ ] `application/` が `use axum` していない
+- [ ] `infrastructure/` が `domain/repositories/` のtraitをimplしている
+- [ ] `presentation/` にビジネスロジックが書かれていない
+
+### ドメイン層の実装（DDD戦術パターン）
 - `WishItem`エンティティ（IDによる同一性、不変条件をメソッドで保護）
-- `Price`・`Category`・`WaitingPeriod`値オブジェクト（不正な値はコンパイル時・生成時に弾く）
+- `Price`・`Category`・`WishItemStatus`値オブジェクト（不正な値はコンパイル時・生成時に弾く）
 - `WishItemRepository` trait（`find_by_id`, `save`, `delete` — DBを知らない）
 - `BudgetService` ドメインサービス（予算超過チェックは複数集約をまたぐため）
+- ドメインイベントの型定義（`ItemAdded`, `ItemPurchased`, `BudgetExceeded`）
 
-### アプリケーション層の実装
+### アプリケーション層の実装（Clean Architecture Use Case）
 - `AddWishItemUseCase` — バリデーション → リポジトリ保存 → イベント発行
-- `CheckImpulseBuyUseCase` — 待機期間チェック → 本当に欲しいか判定ロジック
+- `ReviewWishItemUseCase` — ステータス遷移（衝動買い防止ルールの適用）
 - `GetBudgetStatusUseCase` — 残高計算
 - ユースケースはHTTPを知らない。引数はDTO、戻り値もDTO
+- エラー型はドメインエラーとアプリケーションエラーを分ける
 
 ### テスト（設計の良さを検証する）
 - ドメイン層: `cargo test` だけで全テスト通る（DBもAxumも不要）
-- アプリケーション層: リポジトリをモックして振る舞いをテスト
+- アプリケーション層: Repository traitのインメモリimplを使って振る舞いをテスト
 - ✅ チェックポイント: 「HTTPリクエストなしにビジネスロジックをテストできるか？」
 
 ---
 
 ## Phase 03 · 8月前半　インフラ層・プレゼンテーション層（Rust）
 
-> **このフェーズで学ぶこと**: 依存逆転の原則の実感。traitのimplを差し替えるだけで外部依存を切り替えられる
+> **このフェーズで学ぶこと**:
+> - **Clean Architecture視点**: 依存逆転の原則の実感。traitのimplを差し替えるだけで外部依存を切り替えられる
+> - **DDD視点**: ドメインモデルをDBスキーマに写像するときの「インピーダンスミスマッチ」への対処
 
 ### インフラ層の実装
 - `PostgresWishItemRepository` — `WishItemRepository` traitのimpl（SQLxで実装）
-- `JwtAuthService` — 認証の実装はここ
+- `JwtAuthService` — 認証の実装はここ（Domain層はAuthを知らない）
 - DIコンテナ的な組み立て（Rustではstate管理やtrait objectで）
+- **注意**: ドメインオブジェクト ↔ DBレコードの変換（mapping）はInfrastructure層の責務
 
 ### プレゼンテーション層の実装
 - Axumハンドラーは「リクエストのパース → ユースケース呼び出し → レスポンス変換」のみ
 - ビジネスロジックがハンドラーに漏れていたら設計ミスのサイン
+- HTTPステータスコードへのエラーマッピングもここで行う
 
-### 🔬 変更容易性の検証（重要）
-- **リポジトリをSQLiteに差し替えてみる** — `SqliteWishItemRepository`を実装してテストが通るか確認
-- これが通れば「データ永続化の詳細をドメインが知らない」設計が証明される
+### 🔬 変更容易性の検証（Clean Architectureの真価）
+- **リポジトリをインメモリ実装に差し替えてみる** — `InMemoryWishItemRepository`を実装してドメイン・アプリケーション層のテストが通るか確認
+- これが通れば「データ永続化の詳細をドメインが知らない」設計が証明される（依存逆転の原則の実証）
 - 通らない場合は設計に漏れがある → 修正してレイヤー境界を正す
 
 ---
@@ -176,7 +203,9 @@ src/
 - **UI磨き込み** — 細部のUX改善・アニメーション・ローディング状態
 - **PWA対応** — マニフェスト・Service Worker
 - **README整備** — なぜこの設計にしたか・トレードオフ・アーキテクチャ図を書く
-- **Zenn記事執筆** — 「RustでDDD+クリーンアーキテクチャを実践した」知見を記事化
+- **Zenn記事執筆** — 「RustでDDD + Clean Architectureを実践した」知見を記事化
+  - DDD と Clean Architecture をどう組み合わせたか（役割分担の整理）
+  - 依存逆転の原則をRustのtraitでどう実現したか
   - どこで悩んだか・失敗した設計・直した理由を正直に書く
 - **ユーザーテスト** — 身近な人に使ってもらいフィードバック収集
 
@@ -187,7 +216,8 @@ src/
 - **本番環境デプロイ** — Fly.io本番環境・ドメイン設定
 - **バグ修正・安定化** — Sentry活用
 - **career-log記録** — 設計判断・苦労した点・学びを career-log に記録
-  - 「DDDをやってみてわかったこと」「クリーンアーキテクチャの実感値」
+  - 「DDDをやってみてわかったこと」「Clean Architectureの実感値」
+  - 「DDD単独 vs DDD + Clean Architectureで何が変わったか」
 - **ポートフォリオ掲載** — 転職活動用のプロジェクト説明文（アーキテクチャの工夫を中心に）
 - **🎉 リリース完了** — ホシカ公開！
 
@@ -195,10 +225,16 @@ src/
 
 ## 振り返りの問い（各フェーズ末に自問する）
 
-1. **このビジネスルールをどのレイヤーに書いたか？　なぜ？**
-2. **このコードを変更するとき、他のどのコードが影響を受けるか？**
-3. **テストを書くのが難しい場所はどこか？　それは設計の問題では？**
-4. **ドメインエキスパート（ユーザー）と話せる言葉でコードが書けているか？**
+### DDD視点
+1. **ドメインエキスパート（ユーザー）と話せる言葉でコードが書けているか？**（ユビキタス言語）
+2. **集約の不変条件はすべてドメインオブジェクトのメソッドで保護されているか？**
+3. **コンテキスト境界を越えるときにACLや Published Language を使っているか？**
+
+### Clean Architecture視点
+4. **このビジネスルールをどのレイヤーに書いたか？　なぜ？**
+5. **Domain層がフレームワーク（Axum / SQLx）を `use` していないか？**
+6. **テストを書くのが難しい場所はどこか？　それは依存が逆転していないサインでは？**
+7. **このコードを変更するとき、他のどのレイヤーが影響を受けるか？　影響が局所的か？**
 
 ---
 
