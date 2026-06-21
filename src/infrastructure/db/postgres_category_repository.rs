@@ -1,12 +1,13 @@
+#![allow(dead_code)]
 //! TODO: Phase 02 で実装
-use std::sync::Arc;
-use sqlx::PgPool;
 use async_trait::async_trait;
+use sqlx::PgPool;
+use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::domain::value_objects::Category;
-use crate::domain::repositories::CategoryRepository;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
+use crate::domain::repositories::CategoryRepository;
+use crate::domain::value_objects::Category;
 
 pub struct PostgresCategoryRepository {
     pool: Arc<PgPool>,

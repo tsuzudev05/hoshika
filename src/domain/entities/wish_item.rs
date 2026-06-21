@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! WishItem エンティティ（集約ルート）
 //!
 //! # 不変条件
@@ -44,7 +45,9 @@ impl WishItem {
             added_at: now,
             updated_at: now,
         };
-        let events = vec![DomainEvent::ItemAdded { wish_item_id: item.id }];
+        let events = vec![DomainEvent::ItemAdded {
+            wish_item_id: item.id,
+        }];
         Ok((item, events))
     }
 
@@ -83,7 +86,9 @@ impl WishItem {
         }
         self.status = WishItemStatus::NextToBuy;
         self.updated_at = Utc::now();
-        let event = DomainEvent::ItemMovedToNextToBuy { wish_item_id: self.id };
+        let event = DomainEvent::ItemMovedToNextToBuy {
+            wish_item_id: self.id,
+        };
         Ok(vec![event])
     }
 
@@ -100,7 +105,9 @@ impl WishItem {
         }
         self.status = WishItemStatus::Archived;
         self.updated_at = Utc::now();
-        Ok(vec![DomainEvent::ItemArchived { wish_item_id: self.id }])
+        Ok(vec![DomainEvent::ItemArchived {
+            wish_item_id: self.id,
+        }])
     }
 
     /// 購入済みにする（NextToBuy → Purchased）
@@ -113,7 +120,9 @@ impl WishItem {
         }
         self.status = WishItemStatus::Purchased;
         self.updated_at = Utc::now();
-        Ok(vec![DomainEvent::ItemPurchased { wish_item_id: self.id }])
+        Ok(vec![DomainEvent::ItemPurchased {
+            wish_item_id: self.id,
+        }])
     }
 }
 
@@ -134,7 +143,10 @@ mod tests {
     use crate::domain::value_objects::{Category, Memo, Price};
 
     fn make_item() -> WishItem {
-        let category = Category { id: Uuid::new_v4(), name: "書籍".to_string() };
+        let category = Category {
+            id: Uuid::new_v4(),
+            name: "書籍".to_string(),
+        };
         let (item, _) = WishItem::new(
             "テスト本",
             Price::new(2000).unwrap(),
@@ -153,7 +165,10 @@ mod tests {
 
     #[test]
     fn empty_name_returns_error() {
-        let category = Category { id: Uuid::new_v4(), name: "書籍".to_string() };
+        let category = Category {
+            id: Uuid::new_v4(),
+            name: "書籍".to_string(),
+        };
         let result = WishItem::new("", Price::new(1000).unwrap(), category, Memo::new(""));
         assert!(matches!(result, Err(WishItemError::EmptyName)));
     }
@@ -163,7 +178,13 @@ mod tests {
         let mut item = make_item();
         let events = item.review(true).unwrap();
         assert_eq!(item.status, WishItemStatus::NextToBuy);
-        assert!(matches!(events[0], DomainEvent::ItemReviewed { still_want: true, .. }));
+        assert!(matches!(
+            events[0],
+            DomainEvent::ItemReviewed {
+                still_want: true,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -171,7 +192,13 @@ mod tests {
         let mut item = make_item();
         let events = item.review(false).unwrap();
         assert_eq!(item.status, WishItemStatus::OnHold);
-        assert!(matches!(events[0], DomainEvent::ItemReviewed { still_want: false, .. }));
+        assert!(matches!(
+            events[0],
+            DomainEvent::ItemReviewed {
+                still_want: false,
+                ..
+            }
+        ));
     }
 
     #[test]

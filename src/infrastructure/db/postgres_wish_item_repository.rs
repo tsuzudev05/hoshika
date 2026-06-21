@@ -1,13 +1,14 @@
+#![allow(dead_code)]
 //! PostgresWishItemRepository — WishItemRepository の sqlx 実装
 //! TODO: Phase 02 で実装する
-use std::sync::Arc;
-use sqlx::PgPool;
 use async_trait::async_trait;
+use sqlx::PgPool;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::entities::wish_item::WishItem;
-use crate::domain::repositories::WishItemRepository;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
+use crate::domain::repositories::WishItemRepository;
 
 pub struct PostgresWishItemRepository {
     pool: Arc<PgPool>,

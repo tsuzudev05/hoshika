@@ -1,9 +1,10 @@
+#![allow(dead_code)]
 //! ReviewWishItem ユースケース（衝動買い防止チェック）
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::domain::repositories::WishItemRepository;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
+use crate::domain::repositories::WishItemRepository;
 
 pub struct ReviewWishItemUseCase {
     wish_item_repo: Arc<dyn WishItemRepository>,
@@ -21,7 +22,8 @@ impl ReviewWishItemUseCase {
             .await?
             .ok_or(ReviewError::NotFound(id))?;
 
-        let _events = item.review(still_want)
+        let _events = item
+            .review(still_want)
             .map_err(|e| ReviewError::DomainError(e.to_string()))?;
 
         self.wish_item_repo.save(&item).await?;

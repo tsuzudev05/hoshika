@@ -1,14 +1,15 @@
+#![allow(dead_code)]
 //! AddWishItem ユースケース
 //! HTTP を知らない。引数は DTO、戻り値も DTO。
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::application::dto::{AddWishItemInput, WishItemOutput};
 use crate::domain::{
     entities::wish_item::WishItem,
     repositories::{CategoryRepository, WishItemRepository},
     value_objects::{Memo, Price},
 };
-use crate::application::dto::{AddWishItemInput, WishItemOutput};
 
 pub struct AddWishItemUseCase {
     wish_item_repo: Arc<dyn WishItemRepository>,
@@ -20,7 +21,10 @@ impl AddWishItemUseCase {
         wish_item_repo: Arc<dyn WishItemRepository>,
         category_repo: Arc<dyn CategoryRepository>,
     ) -> Self {
-        Self { wish_item_repo, category_repo }
+        Self {
+            wish_item_repo,
+            category_repo,
+        }
     }
 
     pub async fn execute(&self, input: AddWishItemInput) -> Result<WishItemOutput, UseCaseError> {

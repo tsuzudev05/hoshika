@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 //! CategoryRepository trait
-use crate::domain::value_objects::Category;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
+use crate::domain::value_objects::Category;
 use uuid::Uuid;
 
 #[async_trait::async_trait]
