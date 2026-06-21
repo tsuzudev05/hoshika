@@ -12,6 +12,9 @@ on:
       - "frontend/**"
       - ".github/workflows/frontend.yml"
 
+env:
+  NODE_VERSION: "20"
+
 defaults:
   run:
     working-directory: frontend
@@ -27,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -35,10 +38,24 @@ jobs:
         run: npm ci
 
       - name: Type check
+        id: typecheck
         run: npx tsc --noEmit
 
       - name: Lint
+        id: lint
         run: npm run lint
 
       - name: Build
+        id: build
         run: npm run build
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Frontend CI Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check      | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| type-check | ${{ steps.typecheck.outcome == 'success' && '✅ passed' || steps.typecheck.outcome == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| lint       | ${{ steps.lint.outcome      == 'success' && '✅ passed' || steps.lint.outcome      == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| build      | ${{ steps.build.outcome     == 'success' && '✅ passed' || steps.build.outcome     == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
