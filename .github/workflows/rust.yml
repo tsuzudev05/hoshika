@@ -20,7 +20,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  SQLX_VERSION: "0.7.4"
   # postgres:16-alpine イメージバージョン（services.image は式展開不可のためここに記載）
   POSTGRES_USER: hoshika
   POSTGRES_PASSWORD: hoshika
@@ -69,8 +68,10 @@ jobs:
 
       - name: Install sqlx-cli
         run: |
+          SQLX_VERSION=$(awk '/^name = "sqlx"$/ { found=1 } found && /^version / { gsub(/"/, "", $3); print $3; exit }' Cargo.lock)
+          echo "sqlx-cli version: ${SQLX_VERSION}"
           cargo install sqlx-cli \
-            --version ${{ env.SQLX_VERSION }} \
+            --version "${SQLX_VERSION}" \
             --no-default-features \
             --features rustls,postgres \
             --locked

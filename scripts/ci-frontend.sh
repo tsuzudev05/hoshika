@@ -23,8 +23,8 @@ else
 fi
 
 # ── 型チェック ───────────────────────────────────────────────
-info "tsc --noEmit"
-if npx tsc --noEmit; then
+info "npm run type-check"
+if npm run type-check; then
   ok "type-check: OK"
 else
   fail "type-check: 型エラーがあります。"

@@ -39,7 +39,7 @@ jobs:
 
       - name: Type check
         id: typecheck
-        run: npx tsc --noEmit
+        run: npm run type-check
 
       - name: Lint
         id: lint
