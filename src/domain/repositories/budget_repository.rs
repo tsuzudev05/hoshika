@@ -1,7 +1,8 @@
+#![allow(dead_code)]
 //! BudgetRepository trait
 use crate::domain::entities::budget::Budget;
-use crate::domain::value_objects::YearMonth;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
+use crate::domain::value_objects::YearMonth;
 use uuid::Uuid;
 
 #[async_trait::async_trait]

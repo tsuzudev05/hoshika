@@ -36,6 +36,9 @@ mod tests {
 
     #[test]
     fn invalid_month_13() {
-        assert!(matches!(YearMonth::new(2026, 13), Err(YearMonthError::InvalidMonth(13))));
+        assert!(matches!(
+            YearMonth::new(2026, 13),
+            Err(YearMonthError::InvalidMonth(13))
+        ));
     }
 }

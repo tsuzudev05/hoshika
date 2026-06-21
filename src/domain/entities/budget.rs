@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Budget エンティティ（集約ルート）
 use crate::domain::events::DomainEvent;
 use crate::domain::value_objects::{Price, YearMonth};

@@ -1,0 +1,108 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "migrations/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "migrations/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/rust.yml"
+
+env:
+  CARGO_TERM_COLOR: always
+  # postgres:16-alpine イメージバージョン（services.image は式展開不可のためここに記載）
+  POSTGRES_USER: hoshika
+  POSTGRES_PASSWORD: hoshika
+  POSTGRES_DB: hoshika
+
+jobs:
+  check:
+    name: Build / Test / Lint
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }}"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install sqlx-cli
+        run: |
+          SQLX_VERSION=$(awk '/^name = "sqlx"$/ { found=1 } found && /^version / { gsub(/"/, "", $3); print $3; exit }' Cargo.lock)
+          echo "sqlx-cli version: ${SQLX_VERSION}"
+          cargo install sqlx-cli \
+            --version "${SQLX_VERSION}" \
+            --no-default-features \
+            --features rustls,postgres \
+            --locked
+
+      - name: Run migrations
+        run: sqlx migrate run
+
+      - name: cargo fmt
+        id: fmt
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        id: clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: cargo build
+        id: build
+        run: cargo build --locked
+
+      - name: cargo test
+        id: test
+        run: cargo test --locked
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Rust CI Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| fmt    | ${{ steps.fmt.outcome    == 'success' && '✅ passed' || steps.fmt.outcome    == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| clippy | ${{ steps.clippy.outcome == 'success' && '✅ passed' || steps.clippy.outcome == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| build  | ${{ steps.build.outcome  == 'success' && '✅ passed' || steps.build.outcome  == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| test   | ${{ steps.test.outcome   == 'success' && '✅ passed' || steps.test.outcome   == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY

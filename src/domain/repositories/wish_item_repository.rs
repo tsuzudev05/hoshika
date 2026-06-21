@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! WishItemRepository trait（DBを知らないインターフェース）
 //! impl は infrastructure/db/ に置く。
 use crate::domain::entities::wish_item::WishItem;

@@ -1,12 +1,13 @@
+#![allow(dead_code)]
 //! TODO: Phase 02 で実装
-use std::sync::Arc;
-use sqlx::PgPool;
 use async_trait::async_trait;
+use sqlx::PgPool;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::entities::budget::Budget;
-use crate::domain::repositories::BudgetRepository;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
+use crate::domain::repositories::BudgetRepository;
 use crate::domain::value_objects::YearMonth;
 
 pub struct PostgresBudgetRepository {

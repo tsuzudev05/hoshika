@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! WishItem DTO（HTTP を知らない入出力型）
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

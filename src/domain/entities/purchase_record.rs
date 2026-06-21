@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! PurchaseRecord エンティティ（Budget 集約の内部エンティティ）
 use crate::domain::value_objects::{Memo, Price};
 use chrono::{DateTime, Utc};
