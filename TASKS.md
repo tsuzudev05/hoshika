@@ -1,40 +1,8 @@
 # Tasks
 
+> Phase 01 完了記録 → [TASKS-phase01.md](./TASKS-phase01.md)
+
 ## Active
-
-### Phase 01 · ドメインモデリング（〜6月末）
-
-- [x] **コンテキストマップのスケッチ** - 3コンテキストの境界と関係を図にする　due 6/15　完了（2026-06-12）
-  - 欲しいものコンテキスト / 予算管理コンテキスト / 衝動買い防止コンテキスト
-  - READMEにMermaidダイアグラム + 統合パターン（Customer-Supplier / Published Language / ACL）を追記
-- [x] **ドメインモデル設計** - エンティティ・値オブジェクト・集約を識別する　due 6/20　完了（2026-06-13）
-  - エンティティ: WishItem, Budget, PurchaseRecord
-  - 値オブジェクト: Price, Category, WishItemStatus, Memo, YearMonth
-  - 集約境界: WishItemとCheckフローは同じ集約（WishItemが集約ルート）→ [domain-model.md](./domain-model.md) 参照
-- [x] **ドメインイベントの洗い出し** - 「何が起きたか」を列挙する　due 6/20　完了（2026-06-13）
-  - ItemAdded / ItemReviewed / ItemMovedToNextToBuy / ItemArchived / ItemPurchased
-  - BudgetSet / PurchaseRecorded / BudgetExceeded
-  - WaitingPeriodは見送り（タイマー強制ではなくレビュー行為で防止する設計のため）
-- [x] **DB設計** - ドメインモデルからテーブル設計を導出する　due 6/25　完了（2026-06-14）
-  - wish_items / budgets / categories / purchase_records
-  - 注意: テーブルの都合でエンティティを歪めない
-  - 詳細: [db-design.md](./db-design.md) 参照
-- [x] **開発環境構築** - DevContainer（Rust / React+TS / PostgreSQL / Fly.io）　due 6/28　完了（2026-06-18）
-  - `.devcontainer/devcontainer.json` + `docker-compose.yml`（PostgreSQL）
-  - `Cargo.toml`（axum / sqlx / uuid / thiserror 等）
-  - `src/` Clean Architectureレイヤー構造（domain / application / infrastructure / presentation）
-  - `frontend/`（Vite + React + TypeScript + TanStack Query）
-  - `migrations/20260615000001_initial_schema.sql`（db-design.mdのスキーマ）
-- [ ] **GitHub repo作成・CI/CD基礎設定** - GitHub Actions　due 6/30
-
-### 学習（並行）
-
-- [ ] **「ドメイン駆動設計入門」読み進める** - Phase 01作業と同期して読む
-  - 集約を設計するタイミングで集約の章を読む
-- [ ] **「Clean Architecture」読み進める** - 原則・考え方を先に頭に入れる
-  - 章ごとに「なぜそうするか」を自分の言葉でメモする
-
-## Someday
 
 ### Phase 02 · ドメイン層・アプリケーション層（7月〜）　※ DDD + Clean Architecture
 
@@ -51,18 +19,31 @@
 - [ ] **InMemoryRepository実装** - テスト用。DBなしでドメイン・ユースケース層をテスト
 - [ ] **ドメイン層のテスト整備** - cargo testだけで通るか確認（DBもAxumも不要）
 
-## Done
+### 学習（並行）
 
-- [x] **開発環境構築** - DevContainer（Rust / React+TS / PostgreSQL / Fly.io）　due 6/28　完了（2026-06-18）
-- [x] **DB設計の壁打ち** - db-design.mdをもとにトレードオフを議論する　due 6/16
-  - `balance` のキャッシュ vs 都度集計
-  - `category_id NOT NULL` のカテゴリ削除問題
-  - `wish_item_status` をENUMにするトレードオフ
-  - ステータス遷移履歴をどこで持つか
-  - 購入済み `WishItem` の削除制約問題
-- [x] **DB設計** - ドメインモデルからテーブル設計を導出する　完了（2026-06-14）
-- [x] **ユビキタス言語の定義** - 用語集（Glossary）をREADMEに書く　完了（2026-06-12）
-- [x] **コンテキストマップのスケッチ** - 3コンテキストの境界と関係を図にする　完了（2026-06-12）
-- [x] **ドメインモデル設計** - エンティティ・値オブジェクト・集約を識別する　完了（2026-06-13）
-- [x] **ドメインイベントの洗い出し** - 「何が起きたか」を列挙する　完了（2026-06-13）
-- [x] **設計思想をDDD + Clean Architectureに統一** - README / roadmap を更新　完了（2026-06-13）
+- [ ] **「ドメイン駆動設計入門」読み進める** - Phase 02作業と同期して読む
+  - 集約を設計するタイミングで集約の章を読む
+- [ ] **「Clean Architecture」読み進める** - 原則・考え方を先に頭に入れる
+  - 章ごとに「なぜそうするか」を自分の言葉でメモする
+
+## Someday
+
+### Phase 03 · 8月前半　インフラ層・プレゼンテーション層（Rust）
+
+> **このフェーズで学ぶこと**:
+> - **Clean Architecture視点**: 依存逆転の原則の実感。traitのimplを差し替えるだけで外部依存を切り替えられる
+> - **DDD視点**: ドメインモデルをDBスキーマに写像するときの「インピーダンスミスマッチ」への対処
+
+- [ ] **インフラ層の実装**
+  - `PostgresWishItemRepository` — `WishItemRepository` traitのimpl（SQLxで実装）
+  - `JwtAuthService` — 認証の実装はここ（Domain層はAuthを知らない）
+  - DIコンテナ的な組み立て（Rustではstate管理やtrait objectで）
+  - 注意: ドメインオブジェクト ↔ DBレコードの変換（mapping）はInfrastructure層の責務
+- [ ] **プレゼンテーション層の実装**
+  - Axumハンドラーは「リクエストのパース → ユースケース呼び出し → レスポンス変換」のみ
+  - ビジネスロジックがハンドラーに漏れていたら設計ミスのサイン
+  - HTTPステータスコードへのエラーマッピングもここで行う
+- [ ] **変更容易性の検証（Clean Architectureの真価）**
+  - `InMemoryWishItemRepository` を実装してドメイン・アプリケーション層のテストが通るか確認
+  - 通れば「データ永続化の詳細をドメインが知らない」設計が証明される（依存逆転の原則の実証）
+  - 通らない場合は設計に漏れがある → 修正してレイヤー境界を正す
