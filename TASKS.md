@@ -6,8 +6,10 @@
 
 ### Phase 02 · ドメイン層・アプリケーション層（7月〜）　※ DDD + Clean Architecture
 
-- [ ] **Rustプロジェクト構造をレイヤーで切る** - domain / application / infrastructure / presentation
-  - 依存ルール確認: `domain/` が `axum` / `sqlx` に依存していないこと
+- [x] **Rustプロジェクト構造をレイヤーで切る** - domain / application / infrastructure / presentation　完了（2026-06-23）
+  - 依存ルール確認: `domain/` が `axum` / `sqlx` に依存していないこと ✅
+  - `RepositoryError::Database(#[from] sqlx::Error)` を削除 → `Unexpected(String)` に置換
+  - sqlx変換は infrastructure 層の `to_repo_err()` で行う
 - [ ] **WishItemエンティティ実装** - IDによる同一性・不変条件をメソッドで保護
   - ステータス遷移は `WishItem::review()` メソッドに閉じ込める
 - [ ] **値オブジェクト実装** - Price / Category / WishItemStatus / Memo / YearMonth
