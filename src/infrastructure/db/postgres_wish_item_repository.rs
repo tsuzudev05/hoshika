@@ -10,6 +10,10 @@ use crate::domain::entities::wish_item::WishItem;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
 use crate::domain::repositories::WishItemRepository;
 
+fn to_repo_err(e: sqlx::Error) -> RepositoryError {
+    RepositoryError::Unexpected(e.to_string())
+}
+
 pub struct PostgresWishItemRepository {
     pool: Arc<PgPool>,
 }

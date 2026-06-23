@@ -9,6 +9,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/rust.yml"
+      - "scripts/check-layer-deps.sh"
   pull_request:
     branches: [main]
     paths:
@@ -17,6 +18,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/rust.yml"
+      - "scripts/check-layer-deps.sh"
 
 env:
   CARGO_TERM_COLOR: always
@@ -79,6 +81,10 @@ jobs:
       - name: Run migrations
         run: sqlx migrate run
 
+      - name: Check layer dependencies
+        id: layer-deps
+        run: bash scripts/check-layer-deps.sh
+
       - name: cargo fmt
         id: fmt
         run: cargo fmt --all -- --check
@@ -102,6 +108,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| layer-deps | ${{ steps.layer-deps.outcome == 'success' && '✅ passed' || steps.layer-deps.outcome == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| fmt    | ${{ steps.fmt.outcome    == 'success' && '✅ passed' || steps.fmt.outcome    == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| clippy | ${{ steps.clippy.outcome == 'success' && '✅ passed' || steps.clippy.outcome == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| build  | ${{ steps.build.outcome  == 'success' && '✅ passed' || steps.build.outcome  == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY

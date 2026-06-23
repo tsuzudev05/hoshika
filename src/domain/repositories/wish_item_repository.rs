@@ -14,8 +14,8 @@ pub trait WishItemRepository: Send + Sync {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RepositoryError {
-    #[error("database error: {0}")]
-    Database(#[from] sqlx::Error),
     #[error("not found")]
     NotFound,
+    #[error("unexpected error: {0}")]
+    Unexpected(String),
 }
