@@ -8,7 +8,7 @@ use crate::application::dto::{AddWishItemInput, WishItemOutput};
 use crate::domain::{
     entities::wish_item::WishItem,
     repositories::{CategoryRepository, WishItemRepository},
-    value_objects::{Memo, Price},
+    value_objects::{Memo, Price, WishItemName},
 };
 
 pub struct AddWishItemUseCase {
@@ -34,11 +34,12 @@ impl AddWishItemUseCase {
             .await?
             .ok_or(UseCaseError::CategoryNotFound(input.category_id))?;
 
+        let name =
+            WishItemName::new(input.name).map_err(|e| UseCaseError::DomainError(e.to_string()))?;
         let price = Price::new(input.price).map_err(|_| UseCaseError::InvalidPrice)?;
         let memo = Memo::new(input.memo.unwrap_or_default());
 
-        let (item, _events) = WishItem::new(input.name, price, category.clone(), memo)
-            .map_err(|e| UseCaseError::DomainError(e.to_string()))?;
+        let (item, _events) = WishItem::new(name, price, category.clone(), memo);
 
         self.wish_item_repo.save(&item).await?;
 

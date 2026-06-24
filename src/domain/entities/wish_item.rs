@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::domain::events::DomainEvent;
-use crate::domain::value_objects::{Category, Memo, Price, WishItemStatus};
+use crate::domain::value_objects::{Category, Memo, Price, WishItemName, WishItemStatus};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -14,7 +14,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct WishItem {
     id: Uuid,
-    name: String,
+    name: WishItemName,
     price: Price,
     category: Category,
     status: WishItemStatus,
@@ -25,16 +25,13 @@ pub struct WishItem {
 
 impl WishItem {
     /// 新規 WishItem を作成する。作成時のステータスは必ず `Inbox`。
+    /// name のバリデーション（空文字列不可）は WishItemName::new() が担う。
     pub fn new(
-        name: impl Into<String>,
+        name: WishItemName,
         price: Price,
         category: Category,
         memo: Memo,
-    ) -> Result<(Self, Vec<DomainEvent>), WishItemError> {
-        let name = name.into();
-        if name.is_empty() {
-            return Err(WishItemError::EmptyName);
-        }
+    ) -> (Self, Vec<DomainEvent>) {
         let now = Utc::now();
         let item = Self {
             id: Uuid::new_v4(),
@@ -49,7 +46,7 @@ impl WishItem {
         let events = vec![DomainEvent::ItemAdded {
             wish_item_id: item.id,
         }];
-        Ok((item, events))
+        (item, events)
     }
 
     // --- getters ---
@@ -59,7 +56,7 @@ impl WishItem {
     }
 
     pub fn name(&self) -> &str {
-        &self.name
+        self.name.value()
     }
 
     pub fn price(&self) -> &Price {
@@ -172,8 +169,6 @@ impl Eq for WishItem {}
 
 #[derive(Debug, thiserror::Error)]
 pub enum WishItemError {
-    #[error("name must not be empty")]
-    EmptyName,
     #[error("invalid status transition: {from:?} -> {to:?}")]
     InvalidTransition {
         from: WishItemStatus,
@@ -184,7 +179,7 @@ pub enum WishItemError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::value_objects::{Category, Memo, Price};
+    use crate::domain::value_objects::{Category, Memo, Price, WishItemName};
 
     fn make_item() -> WishItem {
         let category = Category {
@@ -192,12 +187,11 @@ mod tests {
             name: "書籍".to_string(),
         };
         let (item, _) = WishItem::new(
-            "テスト本",
+            WishItemName::new("テスト本").unwrap(),
             Price::new(2000).unwrap(),
             category,
             Memo::new(""),
-        )
-        .unwrap();
+        );
         item
     }
 
@@ -207,16 +201,6 @@ mod tests {
     fn new_item_status_is_inbox() {
         let item = make_item();
         assert_eq!(item.status(), &WishItemStatus::Inbox);
-    }
-
-    #[test]
-    fn empty_name_returns_error() {
-        let category = Category {
-            id: Uuid::new_v4(),
-            name: "書籍".to_string(),
-        };
-        let result = WishItem::new("", Price::new(1000).unwrap(), category, Memo::new(""));
-        assert!(matches!(result, Err(WishItemError::EmptyName)));
     }
 
     // --- review ---
@@ -326,7 +310,7 @@ mod tests {
         let item1 = make_item();
         let mut item2 = item1.clone();
         // 名前を変えても id が同じなら同一エンティティ
-        item2.name = "別の名前".to_string(); // これはmodテスト内なのでアクセス可
+        item2.name = WishItemName::new("別の名前").unwrap();
         assert_eq!(item1, item2);
     }
 
