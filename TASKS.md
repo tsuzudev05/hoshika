@@ -10,8 +10,11 @@
   - 依存ルール確認: `domain/` が `axum` / `sqlx` に依存していないこと ✅
   - `RepositoryError::Database(#[from] sqlx::Error)` を削除 → `Unexpected(String)` に置換
   - sqlx変換は infrastructure 層の `to_repo_err()` で行う
-- [ ] **WishItemエンティティ実装** - IDによる同一性・不変条件をメソッドで保護
-  - ステータス遷移は `WishItem::review()` メソッドに閉じ込める
+- [x] **WishItemエンティティ実装** - IDによる同一性・不変条件をメソッドで保護　完了（2026-06-24）
+  - フィールドをすべて private 化 → getter 経由のみアクセス可（不変条件バイパス不可）
+  - `PartialEq` を id のみで実装（属性が違っても id が同じなら同一エンティティ）
+  - ステータス遷移は各メソッドに閉じ込め済み（review / move_to_next_to_buy / archive / purchase）
+  - テスト: 全遷移パターン + 不正遷移 + エンティティ同一性を網羅
 - [ ] **値オブジェクト実装** - Price / Category / WishItemStatus / Memo / YearMonth
   - `WaitingPeriod` は見送り（レビュー行為で防止する設計のため）
 - [ ] **WishItemRepository trait定義** - DBを知らないインターフェース（domain層に置く）

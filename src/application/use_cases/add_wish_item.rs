@@ -43,13 +43,13 @@ impl AddWishItemUseCase {
         self.wish_item_repo.save(&item).await?;
 
         Ok(WishItemOutput {
-            id: item.id,
-            name: item.name,
-            price: item.price.value(),
+            id: item.id(),
+            name: item.name().to_string(),
+            price: item.price().value(),
             category_name: category.name,
-            status: format!("{:?}", item.status),
-            memo: item.memo.value().to_string(),
-            added_at: item.added_at.to_rfc3339(),
+            status: format!("{:?}", item.status()),
+            memo: item.memo().value().to_string(),
+            added_at: item.added_at().to_rfc3339(),
         })
     }
 }

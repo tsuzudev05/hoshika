@@ -1,25 +1,26 @@
 #![allow(dead_code)]
-//! WishItem エンティティ（集約ルート）
-//!
-//! # 不変条件
-//! - name は空文字列不可
-//! - price は 0 以上
-//! - ステータス遷移は `review()`, `move_to_next_to_buy()` 等のメソッドを通じてのみ行う
 use crate::domain::events::DomainEvent;
 use crate::domain::value_objects::{Category, Memo, Price, WishItemStatus};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+/// 欲しいもの
+/// WishItem エンティティ（集約ルート）
+/// 不変条件:
+/// - name は空文字列不可
+/// - ステータス遷移は各メソッドを通じてのみ行う（フィールド直接書き換え不可）
+///
+/// 同一性: id による（属性が異なっても id が同じなら同一エンティティ）
 #[derive(Debug, Clone)]
 pub struct WishItem {
-    pub id: Uuid,
-    pub name: String,
-    pub price: Price,
-    pub category: Category,
-    pub status: WishItemStatus,
-    pub memo: Memo,
-    pub added_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    id: Uuid,
+    name: String,
+    price: Price,
+    category: Category,
+    status: WishItemStatus,
+    memo: Memo,
+    added_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
 }
 
 impl WishItem {
@@ -51,6 +52,42 @@ impl WishItem {
         Ok((item, events))
     }
 
+    // --- getters ---
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn price(&self) -> &Price {
+        &self.price
+    }
+
+    pub fn category(&self) -> &Category {
+        &self.category
+    }
+
+    pub fn status(&self) -> &WishItemStatus {
+        &self.status
+    }
+
+    pub fn memo(&self) -> &Memo {
+        &self.memo
+    }
+
+    pub fn added_at(&self) -> DateTime<Utc> {
+        self.added_at
+    }
+
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at
+    }
+
+    // --- state transitions ---
+
     /// 衝動買い防止チェックを実施する（Inbox → NextToBuy or OnHold）
     pub fn review(&mut self, still_want: bool) -> Result<Vec<DomainEvent>, WishItemError> {
         if self.status != WishItemStatus::Inbox {
@@ -69,11 +106,10 @@ impl WishItem {
             WishItemStatus::OnHold
         };
         self.updated_at = Utc::now();
-        let event = DomainEvent::ItemReviewed {
+        Ok(vec![DomainEvent::ItemReviewed {
             wish_item_id: self.id,
             still_want,
-        };
-        Ok(vec![event])
+        }])
     }
 
     /// NextToBuy に昇格させる（OnHold → NextToBuy）
@@ -86,10 +122,9 @@ impl WishItem {
         }
         self.status = WishItemStatus::NextToBuy;
         self.updated_at = Utc::now();
-        let event = DomainEvent::ItemMovedToNextToBuy {
+        Ok(vec![DomainEvent::ItemMovedToNextToBuy {
             wish_item_id: self.id,
-        };
-        Ok(vec![event])
+        }])
     }
 
     /// アーカイブする（Inbox / OnHold / NextToBuy → Archived）
@@ -126,6 +161,15 @@ impl WishItem {
     }
 }
 
+/// エンティティの同一性は id で決まる（属性が違っても id が同じなら同一）
+impl PartialEq for WishItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for WishItem {}
+
 #[derive(Debug, thiserror::Error)]
 pub enum WishItemError {
     #[error("name must not be empty")]
@@ -157,10 +201,12 @@ mod tests {
         item
     }
 
+    // --- new ---
+
     #[test]
     fn new_item_status_is_inbox() {
         let item = make_item();
-        assert_eq!(item.status, WishItemStatus::Inbox);
+        assert_eq!(item.status(), &WishItemStatus::Inbox);
     }
 
     #[test]
@@ -173,11 +219,13 @@ mod tests {
         assert!(matches!(result, Err(WishItemError::EmptyName)));
     }
 
+    // --- review ---
+
     #[test]
     fn review_inbox_to_next_to_buy() {
         let mut item = make_item();
         let events = item.review(true).unwrap();
-        assert_eq!(item.status, WishItemStatus::NextToBuy);
+        assert_eq!(item.status(), &WishItemStatus::NextToBuy);
         assert!(matches!(
             events[0],
             DomainEvent::ItemReviewed {
@@ -191,7 +239,7 @@ mod tests {
     fn review_inbox_to_on_hold() {
         let mut item = make_item();
         let events = item.review(false).unwrap();
-        assert_eq!(item.status, WishItemStatus::OnHold);
+        assert_eq!(item.status(), &WishItemStatus::OnHold);
         assert!(matches!(
             events[0],
             DomainEvent::ItemReviewed {
@@ -205,7 +253,87 @@ mod tests {
     fn cannot_review_non_inbox() {
         let mut item = make_item();
         item.review(true).unwrap();
-        let result = item.review(true);
-        assert!(result.is_err());
+        assert!(item.review(true).is_err());
+    }
+
+    // --- move_to_next_to_buy ---
+
+    #[test]
+    fn move_to_next_to_buy_from_on_hold() {
+        let mut item = make_item();
+        item.review(false).unwrap(); // Inbox → OnHold
+        let events = item.move_to_next_to_buy().unwrap();
+        assert_eq!(item.status(), &WishItemStatus::NextToBuy);
+        assert!(matches!(
+            events[0],
+            DomainEvent::ItemMovedToNextToBuy { .. }
+        ));
+    }
+
+    #[test]
+    fn cannot_move_to_next_to_buy_from_inbox() {
+        let mut item = make_item();
+        assert!(item.move_to_next_to_buy().is_err());
+    }
+
+    // --- archive ---
+
+    #[test]
+    fn archive_from_inbox() {
+        let mut item = make_item();
+        let events = item.archive().unwrap();
+        assert_eq!(item.status(), &WishItemStatus::Archived);
+        assert!(matches!(events[0], DomainEvent::ItemArchived { .. }));
+    }
+
+    #[test]
+    fn archive_from_on_hold() {
+        let mut item = make_item();
+        item.review(false).unwrap();
+        assert!(item.archive().is_ok());
+        assert_eq!(item.status(), &WishItemStatus::Archived);
+    }
+
+    #[test]
+    fn cannot_archive_purchased() {
+        let mut item = make_item();
+        item.review(true).unwrap(); // Inbox → NextToBuy
+        item.purchase().unwrap(); // NextToBuy → Purchased
+        assert!(item.archive().is_err());
+    }
+
+    // --- purchase ---
+
+    #[test]
+    fn purchase_from_next_to_buy() {
+        let mut item = make_item();
+        item.review(true).unwrap();
+        let events = item.purchase().unwrap();
+        assert_eq!(item.status(), &WishItemStatus::Purchased);
+        assert!(matches!(events[0], DomainEvent::ItemPurchased { .. }));
+    }
+
+    #[test]
+    fn cannot_purchase_from_inbox() {
+        let mut item = make_item();
+        assert!(item.purchase().is_err());
+    }
+
+    // --- entity identity ---
+
+    #[test]
+    fn same_id_means_equal() {
+        let item1 = make_item();
+        let mut item2 = item1.clone();
+        // 名前を変えても id が同じなら同一エンティティ
+        item2.name = "別の名前".to_string(); // これはmodテスト内なのでアクセス可
+        assert_eq!(item1, item2);
+    }
+
+    #[test]
+    fn different_id_means_not_equal() {
+        let item1 = make_item();
+        let item2 = make_item();
+        assert_ne!(item1, item2);
     }
 }

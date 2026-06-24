@@ -26,12 +26,12 @@ impl GetBudgetStatusUseCase {
         let budget = self.budget_repo.find_by_year_month(ym).await?;
 
         Ok(budget.map(|b| BudgetStatusOutput {
-            id: b.id,
-            year: b.year_month.year,
-            month: b.year_month.month,
-            amount: b.amount.value(),
-            balance: b.balance,
-            is_exceeded: b.balance < 0,
+            id: b.id(),
+            year: b.year_month().year,
+            month: b.year_month().month,
+            amount: b.amount().value(),
+            balance: b.balance(),
+            is_exceeded: b.balance() < 0,
         }))
     }
 }
