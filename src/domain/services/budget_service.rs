@@ -11,7 +11,7 @@ pub struct BudgetService;
 impl BudgetService {
     /// 指定金額の購入が予算超過になるかチェックする
     pub fn will_exceed(budget: &Budget, price: &Price) -> bool {
-        budget.balance() - (price.value() as i64) < 0
+        budget.is_exceed(price)
     }
 }
 

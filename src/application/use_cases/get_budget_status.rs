@@ -30,8 +30,8 @@ impl GetBudgetStatusUseCase {
             year: b.year_month().year,
             month: b.year_month().month,
             amount: b.amount().value(),
-            balance: b.balance(),
-            is_exceeded: b.balance() < 0,
+            balance: b.balance().value(),
+            is_exceeded: b.balance().is_exceeded(),
         }))
     }
 }
