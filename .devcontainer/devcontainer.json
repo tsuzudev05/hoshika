@@ -31,7 +31,8 @@
         "bradlc.vscode-tailwindcss",
         "ckolkman.vscode-postgres",
         "mtxr.sqltools",
-        "mtxr.sqltools-driver-pg"
+        "mtxr.sqltools-driver-pg",
+        "GitHub.vscode-pull-request-github"
       ],
       "settings": {
         "rust-analyzer.server.path": "rust-analyzer",
