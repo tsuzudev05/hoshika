@@ -10,14 +10,24 @@
   - 依存ルール確認: `domain/` が `axum` / `sqlx` に依存していないこと ✅
   - `RepositoryError::Database(#[from] sqlx::Error)` を削除 → `Unexpected(String)` に置換
   - sqlx変換は infrastructure 層の `to_repo_err()` で行う
-- [ ] **WishItemエンティティ実装** - IDによる同一性・不変条件をメソッドで保護
-  - ステータス遷移は `WishItem::review()` メソッドに閉じ込める
-- [ ] **値オブジェクト実装** - Price / Category / WishItemStatus / Memo / YearMonth
+- [x] **WishItemエンティティ実装** - IDによる同一性・不変条件をメソッドで保護　完了（2026-06-24）
+  - フィールドをすべて private 化 → getter 経由のみアクセス可（不変条件バイパス不可）
+  - `PartialEq` を id のみで実装（属性が違っても id が同じなら同一エンティティ）
+  - ステータス遷移は各メソッドに閉じ込め済み（review / move_to_next_to_buy / archive / purchase）
+  - テスト: 全遷移パターン + 不正遷移 + エンティティ同一性を網羅
+- [x] **値オブジェクト実装** - Price / Category / WishItemStatus / Memo / YearMonth　完了（2026-06-24）
   - `WaitingPeriod` は見送り（レビュー行為で防止する設計のため）
-- [ ] **WishItemRepository trait定義** - DBを知らないインターフェース（domain層に置く）
-- [ ] **BudgetService ドメインサービス実装** - 予算超過チェック（複数集約をまたぐため）
-- [ ] **ユースケース実装** - AddWishItem / ReviewWishItem / GetBudgetStatus
-  - application層に置く。HTTPを知らない。引数・戻り値はDTO
+  - `Balance`（`i64` の代替）・`WishItemName`（`String` の代替）を追加
+  - プリミティブ型の代わりにドメインモデルを使うことで、ルールを型で表現
+  - `Balance::is_exceeded()` / `is_sufficient_for()` / `deduct()` でドメイン意図が読める
+  - `WishItemName::new()` が空文字バリデーションを担い、`WishItem::new()` が非 `Result` 化
+- [x] **WishItemRepository trait定義** - DBを知らないインターフェース（domain層に置く）　完了
+  - `WishItemRepository` / `BudgetRepository` / `CategoryRepository` の3 trait 定義済み
+  - `RepositoryError::Unexpected(String)` で sqlx 非依存を維持
+- [x] **BudgetService ドメインサービス実装** - 予算超過チェック（複数集約をまたぐため）　完了
+  - `Budget::would_exceed()` に委譲（ロジックはデータを持つ `Budget` 側に）
+- [x] **ユースケース実装** - AddWishItem / ReviewWishItem / GetBudgetStatus　完了
+  - application層に配置。HTTPを知らない。引数・戻り値はDTO
 - [ ] **InMemoryRepository実装** - テスト用。DBなしでドメイン・ユースケース層をテスト
 - [ ] **ドメイン層のテスト整備** - cargo testだけで通るか確認（DBもAxumも不要）
 

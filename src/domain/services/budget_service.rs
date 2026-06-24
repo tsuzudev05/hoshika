@@ -11,7 +11,7 @@ pub struct BudgetService;
 impl BudgetService {
     /// 指定金額の購入が予算超過になるかチェックする
     pub fn will_exceed(budget: &Budget, price: &Price) -> bool {
-        budget.balance - (price.value() as i64) < 0
+        budget.is_exceed(price)
     }
 }
 
@@ -23,7 +23,10 @@ mod tests {
     fn make_budget(amount: u64, balance: i64) -> Budget {
         let ym = YearMonth::new(2026, 6).unwrap();
         let (mut b, _) = Budget::new(ym, Price::new(amount).unwrap());
-        b.balance = balance;
+        let spend = amount as i64 - balance;
+        if spend > 0 {
+            b.record_purchase(Price::new(spend as u64).unwrap());
+        }
         b
     }
 
