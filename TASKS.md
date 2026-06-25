@@ -28,7 +28,12 @@
   - `Budget::would_exceed()` に委譲（ロジックはデータを持つ `Budget` 側に）
 - [x] **ユースケース実装** - AddWishItem / ReviewWishItem / GetBudgetStatus　完了
   - application層に配置。HTTPを知らない。引数・戻り値はDTO
-- [ ] **InMemoryRepository実装** - テスト用。DBなしでドメイン・ユースケース層をテスト
+- [x] **InMemoryRepository実装** - テスト用。DBなしでドメイン・ユースケース層をテスト　完了（2026-06-25）
+  - `InMemoryWishItemRepository` / `InMemoryBudgetRepository` / `InMemoryCategoryRepository` を実装
+  - `src/infrastructure/in_memory/` に配置（PostgreSQL実装と並列）
+  - `tokio::sync::Mutex<HashMap<Uuid, T>>` でスレッドセーフに管理
+  - `InMemoryCategoryRepository::with_categories()` でテスト用シードデータを注入可能
+  - 各リポジトリに `#[tokio::test]` 付きのユニットテストを内包
 - [ ] **ドメイン層のテスト整備** - cargo testだけで通るか確認（DBもAxumも不要）
 
 ### 学習（並行）
