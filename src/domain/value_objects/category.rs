@@ -1,4 +1,5 @@
-//! Category 値オブジェクト
+/// カテゴリ
+/// 値オブジェクト アイテムの分類
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -23,9 +23,12 @@
 | 用語 | 日本語での呼び方 | 定義 |
 |------|----------------|------|
 | `Price` | 金額 | 0円以上の正の値。負の値は存在しない |
+| `Balance` | 残高 | 予算の残高。負になりうる（予算超過はドメイン上ありえる状態）。`is_exceeded()` / `is_sufficient_for()` / `deduct()` でドメイン意図を表現する |
 | `Category` | カテゴリ | アイテムの分類（例: 書籍・ガジェット・ファッション）。文字列ではなく型として扱う |
+| `WishItemName` | 欲しいものの名前 | 空文字列不可のドメインルールを型で表現する。`new()` でバリデーション済みの値のみ生成できる |
 | `WishItemStatus` | 欲しいものの状態 | `Inbox`（未整理）・`NextToBuy`（次に買う）・`OnHold`（保留）・`Archived`（不要・非表示）・`Purchased`（購入済み）のいずれか |
-| `Memo` | メモ | 購入記録に添付できる自由記述。「セールで安く買えた」など。空でも可 |
+| `Memo` | メモ | WishItem・PurchaseRecord に添付できる自由記述。空でも可 |
+| `YearMonth` | 年月 | 予算管理の月単位を表す。2000年以降・1〜12月のバリデーションあり |
 
 ### ドメインサービス
 
@@ -38,9 +41,12 @@
 | イベント名 | 発生条件 |
 |------------|----------|
 | `ItemAdded` | WishItemがInboxに追加された |
-| `ItemReviewed` | ユーザーがレビューし、ステータスを変更した（次に買う／保留／不要） |
+| `ItemReviewed` | ユーザーがレビューし、ステータスを変更した（次に買う／保留） |
+| `ItemMovedToNextToBuy` | OnHold状態のWishItemが「次に買う」に昇格した |
 | `ItemArchived` | WishItemが「不要」と判断され、アーカイブされた |
-| `ItemPurchased` | WishItemが購入され、PurchaseRecordが生成された |
+| `ItemPurchased` | WishItemが購入済みになった |
+| `BudgetSet` | 月次予算が設定された |
+| `PurchaseRecorded` | 購入が予算に記録され、残高が減少した |
 | `BudgetExceeded` | 購入によって予算残高が0を下回った |
 
 ---

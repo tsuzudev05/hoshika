@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-//! BudgetService ドメインサービス
-//!
-//! 複数の集約をまたぐドメインロジック（予算超過チェック）を担う。
-//! WishItem と Budget は別集約のため、ドメインサービスで橋渡しする。
+/// 予算サービス
+/// ドメインサービス
+/// 複数の集約をまたぐドメインロジック（予算超過チェック）を担う。
+/// WishItem と Budget は別集約のため、ドメインサービスで橋渡しする。
 use crate::domain::entities::budget::Budget;
 use crate::domain::value_objects::Price;
 
