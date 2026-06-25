@@ -1,4 +1,4 @@
-//! Memo 値オブジェクト（空文字列を許容するメモ）
+/// メモ 値オブジェクト（空文字列を許容するメモ）
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Memo(String);
 

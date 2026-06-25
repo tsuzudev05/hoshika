@@ -1,4 +1,5 @@
-//! Price 値オブジェクト（円単位の非負整数）
+/// 金額
+/// 値オブジェクト（円単位の非負整数）
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Price(u64);
 

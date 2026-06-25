@@ -1,5 +1,6 @@
 #![allow(dead_code)]
-//! WishItemStatus 値オブジェクト（ステータス列挙）
+/// 欲しいものの状態
+/// 値オブジェクト（ステータス列挙）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WishItemStatus {
     Inbox,

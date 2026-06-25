@@ -1,4 +1,5 @@
-//! YearMonth 値オブジェクト（予算管理の月単位）
+/// 年月
+/// 値オブジェクト（予算管理の月単位）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct YearMonth {
     pub year: u16,

@@ -1,5 +1,5 @@
-/// WishItemName 値オブジェクト
-///
+/// 欲しいものの名前
+/// 値オブジェクト
 /// String の生値ではなく WishItemName として扱うことで、
 /// 「欲しいものの名前は空文字列不可」というドメインルールを型で表現する。
 #[derive(Debug, Clone, PartialEq, Eq)]
