@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+//! InMemoryCategoryRepository — CategoryRepository のインメモリ実装
+//! テスト用。DBなしでドメイン・ユースケース層を検証する目的で使う。
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -10,18 +12,24 @@ use crate::domain::repositories::wish_item_repository::RepositoryError;
 use crate::domain::repositories::CategoryRepository;
 use crate::domain::value_objects::Category;
 
+/// Category をメモリ上の HashMap で管理するリポジトリ。
+/// 複数の非同期タスクから安全にアクセスできるよう `Arc<Mutex<...>>` で保護する。
 pub struct InMemoryCategoryRepository {
     store: Arc<Mutex<HashMap<Uuid, Category>>>,
 }
 
 impl InMemoryCategoryRepository {
+    /// 空のリポジトリを生成する。
     pub fn new() -> Self {
         Self {
             store: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    /// テスト用にカテゴリを初期データとして投入する
+    /// テスト用の初期データを持つリポジトリを生成する。
+    ///
+    /// # Parameters
+    /// - `categories` — 初期状態として投入する Category のリスト
     pub fn with_categories(categories: Vec<Category>) -> Self {
         let map = categories.into_iter().map(|c| (c.id, c)).collect();
         Self {
@@ -32,11 +40,13 @@ impl InMemoryCategoryRepository {
 
 #[async_trait]
 impl CategoryRepository for InMemoryCategoryRepository {
+    /// 保存されている全 Category を返す。
     async fn find_all(&self) -> Result<Vec<Category>, RepositoryError> {
         let store = self.store.lock().await;
         Ok(store.values().cloned().collect())
     }
 
+    /// 指定した ID の Category を返す。存在しない場合は `Ok(None)`。
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Category>, RepositoryError> {
         let store = self.store.lock().await;
         Ok(store.get(&id).cloned())

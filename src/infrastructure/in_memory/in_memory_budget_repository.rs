@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+//! InMemoryBudgetRepository — BudgetRepository のインメモリ実装
+//! テスト用。DBなしでドメイン・ユースケース層を検証する目的で使う。
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -11,11 +13,14 @@ use crate::domain::repositories::wish_item_repository::RepositoryError;
 use crate::domain::repositories::BudgetRepository;
 use crate::domain::value_objects::YearMonth;
 
+/// 予算 をメモリ上の HashMap で管理するリポジトリ。
+/// 複数の非同期タスクから安全にアクセスできるよう `Arc<Mutex<...>>` で保護する。
 pub struct InMemoryBudgetRepository {
     store: Arc<Mutex<HashMap<Uuid, Budget>>>,
 }
 
 impl InMemoryBudgetRepository {
+    /// 空のリポジトリを生成する。
     pub fn new() -> Self {
         Self {
             store: Arc::new(Mutex::new(HashMap::new())),
@@ -25,16 +30,22 @@ impl InMemoryBudgetRepository {
 
 #[async_trait]
 impl BudgetRepository for InMemoryBudgetRepository {
+    /// 指定した ID の Budget を返す。存在しない場合は `Ok(None)`。
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Budget>, RepositoryError> {
         let store = self.store.lock().await;
         Ok(store.get(&id).cloned())
     }
 
+    /// 指定した年月に対応する Budget を返す。存在しない場合は `Ok(None)`。
+    ///
+    /// インメモリ実装では全件スキャンで検索する。
+    /// 本番の PostgreSQL 実装では `WHERE year = $1 AND month = $2` インデックス検索になる。
     async fn find_by_year_month(&self, ym: YearMonth) -> Result<Option<Budget>, RepositoryError> {
         let store = self.store.lock().await;
         Ok(store.values().find(|b| b.year_month() == ym).cloned())
     }
 
+    /// Budget を保存する。同じ ID が既に存在する場合は上書きする（upsert）。
     async fn save(&self, budget: &Budget) -> Result<(), RepositoryError> {
         let mut store = self.store.lock().await;
         store.insert(budget.id(), budget.clone());
@@ -64,6 +75,13 @@ mod tests {
         let found = repo.find_by_id(id).await.unwrap();
         assert!(found.is_some());
         assert_eq!(found.unwrap().id(), id);
+    }
+
+    #[tokio::test]
+    async fn find_by_id_returns_none_when_missing() {
+        let repo = InMemoryBudgetRepository::new();
+        let result = repo.find_by_id(Uuid::new_v4()).await.unwrap();
+        assert!(result.is_none());
     }
 
     #[tokio::test]
