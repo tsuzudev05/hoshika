@@ -34,7 +34,10 @@
   - `tokio::sync::Mutex<HashMap<Uuid, T>>` でスレッドセーフに管理
   - `InMemoryCategoryRepository::with_categories()` でテスト用シードデータを注入可能
   - 各リポジトリに `#[tokio::test]` 付きのユニットテストを内包
-- [ ] **ドメイン層のテスト整備** - cargo testだけで通るか確認（DBもAxumも不要）
+- [x] **ドメイン層のテスト整備** - cargo testだけで通るか確認（DBもAxumも不要）　完了（2026-06-26）
+  - AddWishItem / ReviewWishItem / GetBudgetStatus の各ユースケースにテスト追加
+  - InMemoryRepository を使ってDB・Axum不要でユースケースを検証
+  - 正常系・異常系（CategoryNotFound / NotFound / DomainError）を網羅
 
 ### 学習（並行）
 
