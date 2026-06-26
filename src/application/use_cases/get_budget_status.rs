@@ -35,3 +35,65 @@ impl GetBudgetStatusUseCase {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    use crate::domain::entities::budget::Budget;
+    use crate::domain::value_objects::{Price, YearMonth};
+    use crate::infrastructure::in_memory::InMemoryBudgetRepository;
+
+    fn make_budget(year: u16, month: u8, amount: u64) -> Budget {
+        let ym = YearMonth::new(year, month).unwrap();
+        let (b, _) = Budget::new(ym, Price::new(amount).unwrap());
+        b
+    }
+
+    // --- 正常系 ---
+
+    #[tokio::test]
+    async fn execute_returns_budget_status_for_existing_year_month() {
+        let budget = make_budget(2026, 6, 50000);
+        let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
+
+        let status = GetBudgetStatusUseCase::new(repo)
+            .execute(2026, 6)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(status.year, 2026);
+        assert_eq!(status.month, 6);
+        assert_eq!(status.amount, 50000);
+        assert_eq!(status.balance, 50000);
+        assert!(!status.is_exceeded);
+    }
+
+    #[tokio::test]
+    async fn execute_returns_none_for_missing_year_month() {
+        let repo = Arc::new(InMemoryBudgetRepository::new());
+        let result = GetBudgetStatusUseCase::new(repo)
+            .execute(2026, 6)
+            .await
+            .unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn execute_reflects_exceeded_balance() {
+        let mut budget = make_budget(2026, 6, 1000);
+        budget.record_purchase(Price::new(1500).unwrap()); // balance = -500
+        let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
+
+        let status = GetBudgetStatusUseCase::new(repo)
+            .execute(2026, 6)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(status.balance, -500);
+        assert!(status.is_exceeded);
+    }
+}
