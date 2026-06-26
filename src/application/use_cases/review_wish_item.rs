@@ -118,9 +118,7 @@ mod tests {
         repo.save(&item).await.unwrap();
 
         // NextToBuy から review するのは無効なステータス遷移
-        let result = ReviewWishItemUseCase::new(repo)
-            .execute(id, true)
-            .await;
+        let result = ReviewWishItemUseCase::new(repo).execute(id, true).await;
         assert!(matches!(result, Err(ReviewError::DomainError(_))));
     }
 }

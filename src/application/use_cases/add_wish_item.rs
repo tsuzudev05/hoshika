@@ -86,12 +86,7 @@ mod tests {
         }
     }
 
-    fn make_use_case(
-        category: Category,
-    ) -> (
-        Arc<InMemoryWishItemRepository>,
-        AddWishItemUseCase,
-    ) {
+    fn make_use_case(category: Category) -> (Arc<InMemoryWishItemRepository>, AddWishItemUseCase) {
         let wish_item_repo = Arc::new(InMemoryWishItemRepository::new());
         let category_repo = Arc::new(InMemoryCategoryRepository::with_categories(vec![category]));
         let use_case = AddWishItemUseCase::new(wish_item_repo.clone(), category_repo);
