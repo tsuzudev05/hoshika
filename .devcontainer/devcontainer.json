@@ -34,6 +34,9 @@
         "rust-analyzer.server.path": "rust-analyzer",
         "rust-analyzer.check.command": "clippy",
         "rust-analyzer.cargo.features": "all",
+        "rust-analyzer.inlayHints.typeHints.enable": true,
+        "rust-analyzer.inlayHints.chainingHints.enable": true,
+        "rust-analyzer.inlayHints.parameterHints.enable": true,
         "editor.formatOnSave": true,
         "[rust]": {
           "editor.defaultFormatter": "rust-lang.rust-analyzer"
@@ -46,6 +49,10 @@
         }
       }
     }
+  },
+
+  "postStartCommand": {
+    "bash-history": "grep -qxF 'scripts/ci-rust.sh' ~/.bash_history || echo 'scripts/ci-rust.sh' >> ~/.bash_history"
   },
 
   "postCreateCommand": {
