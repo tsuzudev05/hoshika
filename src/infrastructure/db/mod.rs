@@ -3,7 +3,7 @@
 mod budget_mapper;
 mod category_mapper;
 mod error;
-mod wish_item_mapper;
 pub mod postgres_budget_repository;
 pub mod postgres_category_repository;
 pub mod postgres_wish_item_repository;
+mod wish_item_mapper;
