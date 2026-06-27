@@ -45,7 +45,13 @@ impl Budget {
         balance: Balance,
         set_at: DateTime<Utc>,
     ) -> Self {
-        Self { id, year_month, amount, balance, set_at }
+        Self {
+            id,
+            year_month,
+            amount,
+            balance,
+            set_at,
+        }
     }
 
     // --- getters ---
