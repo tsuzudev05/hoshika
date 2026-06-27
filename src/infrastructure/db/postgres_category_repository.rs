@@ -1,10 +1,12 @@
 #![allow(dead_code)]
 //! PostgresCategoryRepository — CategoryRepository の sqlx 実装
 use async_trait::async_trait;
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use super::category_mapper::row_to_category;
+use super::error::to_repo_err;
 use crate::domain::repositories::wish_item_repository::RepositoryError;
 use crate::domain::repositories::CategoryRepository;
 use crate::domain::value_objects::Category;
@@ -17,16 +19,6 @@ impl PostgresCategoryRepository {
     pub fn new(pool: Arc<PgPool>) -> Self {
         Self { pool }
     }
-}
-
-fn to_repo_err(e: sqlx::Error) -> RepositoryError {
-    RepositoryError::Unexpected(e.to_string())
-}
-
-fn row_to_category(row: &sqlx::postgres::PgRow) -> Result<Category, RepositoryError> {
-    let id: Uuid = row.try_get("id").map_err(to_repo_err)?;
-    let name: String = row.try_get("name").map_err(to_repo_err)?;
-    Ok(Category { id, name })
 }
 
 #[async_trait]
