@@ -54,11 +54,16 @@
 > - **Clean Architecture視点**: 依存逆転の原則の実感。traitのimplを差し替えるだけで外部依存を切り替えられる
 > - **DDD視点**: ドメインモデルをDBスキーマに写像するときの「インピーダンスミスマッチ」への対処
 
-- [ ] **インフラ層の実装**
-  - `PostgresWishItemRepository` — `WishItemRepository` traitのimpl（SQLxで実装）
+- [x] **PostgresRepository 実装** — sqlx による `WishItemRepository` / `BudgetRepository` / `CategoryRepository` のimpl　完了（2026-06-26）
+  - `PostgresWishItemRepository` — find_by_id / find_all / save（UPSERT） / delete（NotFound対応）
+  - `PostgresBudgetRepository` — find_by_id / find_by_year_month / save（UPSERT）
+  - `PostgresCategoryRepository` — find_all / find_by_id
+  - `Budget::reconstitute()` / `WishItem::reconstitute()` をドメイン層に追加（DBからの復元用コンストラクタ）
+  - sqlx Error → `RepositoryError::Unexpected` の変換は各ファイル内 `to_repo_err()` で行う
+  - status は PostgreSQL enum を `::TEXT` キャストで読み込み、書込み時は `$n::wish_item_status` でキャスト
+- [ ] **インフラ層の残タスク**
   - `JwtAuthService` — 認証の実装はここ（Domain層はAuthを知らない）
   - DIコンテナ的な組み立て（Rustではstate管理やtrait objectで）
-  - 注意: ドメインオブジェクト ↔ DBレコードの変換（mapping）はInfrastructure層の責務
 - [ ] **プレゼンテーション層の実装**
   - Axumハンドラーは「リクエストのパース → ユースケース呼び出し → レスポンス変換」のみ
   - ビジネスロジックがハンドラーに漏れていたら設計ミスのサイン

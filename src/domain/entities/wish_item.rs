@@ -24,6 +24,31 @@ pub struct WishItem {
 }
 
 impl WishItem {
+    /// DBからの再構築。不変条件の適用・イベント発行は行わない。
+    /// Infrastructure 層のリポジトリからのみ呼ばれる。
+    #[allow(clippy::too_many_arguments)]
+    pub fn reconstitute(
+        id: Uuid,
+        name: WishItemName,
+        price: Price,
+        category: Category,
+        status: WishItemStatus,
+        memo: Memo,
+        added_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            price,
+            category,
+            status,
+            memo,
+            added_at,
+            updated_at,
+        }
+    }
+
     /// 新規 WishItem を作成する。作成時のステータスは必ず `Inbox`。
     /// name のバリデーション（空文字列不可）は WishItemName::new() が担う。
     pub fn new(
