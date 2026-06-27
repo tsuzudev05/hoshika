@@ -26,7 +26,30 @@ bash scripts/dev-setup.sh
 `.env.example` → `.env` と `.devcontainer/.env.example` → `.devcontainer/.env` をコピーします。
 `.devcontainer/.env` は Git 管理外（`.gitignore` に記載済み）です。パスワードを変更する場合はこのファイルを編集してください。
 
-### 2. DevContainer を起動する
+### 2. （任意）Claude Code の設定を DevContainer に共有する
+
+ホストの Claude Code 設定（`~/.claude`）をコンテナ内で使いたい場合は、テンプレートをコピーして編集します。
+
+```bash
+cp .devcontainer/docker-compose.override.yml.example .devcontainer/docker-compose.override.yml
+```
+
+`.devcontainer/docker-compose.override.yml` を自分の環境に合わせて編集してください：
+
+```yaml
+services:
+  app:
+    volumes:
+      - type: bind
+        source: /mnt/c/Users/<あなたのユーザー名>/.claude  # Windows (WSL2)
+        # source: /Users/<あなたのユーザー名>/.claude      # macOS
+        target: /home/vscode/.claude
+        read_only: true
+```
+
+> このファイルは `.gitignore` に登録済みのため、コミットされません。Docker Compose が自動的に読み込むため、設定後は DevContainer を再起動するだけで有効になります。
+
+### 3. DevContainer を起動する
 
 ```
 IDE で「Reopen in Container」を実行
@@ -116,8 +139,10 @@ npm run dev
 
 ```
 .devcontainer/
-├── devcontainer.json   # IDE 向けコンテナ設定（拡張機能・環境変数・ポートフォワード）
-└── docker-compose.yml  # app + db の2コンテナ構成
+├── devcontainer.json                    # IDE 向けコンテナ設定（拡張機能・環境変数・ポートフォワード）
+├── docker-compose.yml                   # app + db の2コンテナ構成（Git 管理対象）
+├── docker-compose.override.yml.example  # 個人設定オーバーライドのテンプレート
+└── docker-compose.override.yml          # 個人設定オーバーライド（Git 管理外・各自作成）
 
 .env.example            # 環境変数テンプレート（.env にコピーして使う）
 

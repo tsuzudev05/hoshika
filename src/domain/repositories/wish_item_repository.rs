@@ -14,8 +14,13 @@ pub trait WishItemRepository: Send + Sync {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RepositoryError {
+    /// 指定した ID に対応するレコードが存在しない
     #[error("not found")]
     NotFound,
+    /// ユニーク制約違反（SQLSTATE 23505）など、重複・競合によって操作が拒否された
+    #[error("conflict: {0}")]
+    Conflict(String),
+    /// DB 接続失敗やクエリ構築エラーなど、上記に分類できない予期しないエラー
     #[error("unexpected error: {0}")]
     Unexpected(String),
 }

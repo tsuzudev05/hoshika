@@ -36,6 +36,24 @@ impl Budget {
         (budget, events)
     }
 
+    /// DBからの再構築。不変条件の適用・イベント発行は行わない。
+    /// Infrastructure 層のリポジトリからのみ呼ばれる。
+    pub fn reconstitute(
+        id: Uuid,
+        year_month: YearMonth,
+        amount: Price,
+        balance: Balance,
+        set_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            year_month,
+            amount,
+            balance,
+            set_at,
+        }
+    }
+
     // --- getters ---
 
     pub fn id(&self) -> Uuid {

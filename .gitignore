@@ -7,3 +7,5 @@ zenn-articles/
 frontend/node_modules/
 frontend/dist/
 .zed/
+.devcontainer/docker-compose.override.yml
+.vscode/
