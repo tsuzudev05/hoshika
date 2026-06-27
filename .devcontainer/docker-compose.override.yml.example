@@ -1,0 +1,9 @@
+services:
+  app:
+    volumes:
+      - type: bind
+        # source: /mnt/c/Users/<あなたのユーザー名>/.claude  # Windows (WSL2)
+        # source: /Users/<あなたのユーザー名>/.claude        # macOS
+        source: /mnt/c/Users/your-username/.claude
+        target: /home/vscode/.claude
+        read_only: true

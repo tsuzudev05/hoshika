@@ -12,13 +12,9 @@
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "mounts": [
-    "source=claude-code-config,target=/home/vscode/.claude,type=volume"
-  ],
 
   "customizations": {
     "vscode": {
@@ -56,6 +52,7 @@
     "git-safe":        "git config --global --add safe.directory /workspace",
     "apt":             "sudo apt-get update -qq && sudo apt-get install -y postgresql-client",
     "rust-components": "rustup component add rust-src rust-analyzer",
+    "claude-code":     "npm install -g @anthropic-ai/claude-code",
     "rust":            "cargo build 2>/dev/null || true",
     "frontend":        "cd /workspace/frontend && npm install 2>/dev/null || true"
   },
