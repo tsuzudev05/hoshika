@@ -61,14 +61,16 @@
   - `Budget::reconstitute()` / `WishItem::reconstitute()` をドメイン層に追加（DBからの復元用コンストラクタ）
   - sqlx Error → `RepositoryError::Unexpected` の変換は各ファイル内 `to_repo_err()` で行う
   - status は PostgreSQL enum を `::TEXT` キャストで読み込み、書込み時は `$n::wish_item_status` でキャスト
-- [ ] **インフラ層の残タスク**
-  - `JwtAuthService` — 認証の実装はここ（Domain層はAuthを知らない）
-  - DIコンテナ的な組み立て（Rustではstate管理やtrait objectで）
-- [ ] **プレゼンテーション層の実装**
-  - Axumハンドラーは「リクエストのパース → ユースケース呼び出し → レスポンス変換」のみ
-  - ビジネスロジックがハンドラーに漏れていたら設計ミスのサイン
-  - HTTPステータスコードへのエラーマッピングもここで行う
-- [ ] **変更容易性の検証（Clean Architectureの真価）**
-  - `InMemoryWishItemRepository` を実装してドメイン・アプリケーション層のテストが通るか確認
-  - 通れば「データ永続化の詳細をドメインが知らない」設計が証明される（依存逆転の原則の実証）
-  - 通らない場合は設計に漏れがある → 修正してレイヤー境界を正す
+- [x] **インフラ層の残タスク**　完了（2026-06-28）
+  - [x] `JwtAuthService` — `jsonwebtoken` crate で発行・検証を実装。`JWT_SECRET` 環境変数からキーを取得。`AuthError::Expired` / `InvalidToken` で検証エラーを分類。ユニットテスト3本（正常 / 改ざん / 期限切れ）
+  - [x] DIコンテナ的な組み立て — `AppState` に `Arc<dyn Repo>` 3本を保持し、`create_router()` 内で Postgres 実装を注入、`with_state()` でハンドラーに渡す　完了（2026-06-28）
+- [x] **プレゼンテーション層の実装**　完了（2026-06-28）
+  - `GET /wish-items` — 全件取得、`WishItemOutput` の配列を返す
+  - `POST /wish-items` — `AddWishItemUseCase` 呼び出し、201 Created
+  - `POST /wish-items/:id/review` — `ReviewWishItemUseCase` 呼び出し
+  - `GET /budgets/status?year=&month=` — `GetBudgetStatusUseCase` 呼び出し、未登録なら 404
+  - エラーバリアントごとに HTTP ステータスをマッピング（422 / 404 / 500）
+  - ビジネスロジックはハンドラーにゼロ、ユースケース層への委譲のみ
+- [x] **変更容易性の検証（Clean Architectureの真価）**　完了（2026-06-25）
+  - `InMemoryWishItemRepository` を使ってユースケース層のテストが DB なしで通ることを確認
+  - 「データ永続化の詳細をドメインが知らない」設計を証明（依存逆転の原則の実証）
