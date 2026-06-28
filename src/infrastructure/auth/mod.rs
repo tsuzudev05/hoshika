@@ -3,6 +3,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Claims {
     /// subject（ユーザーID）
     pub sub: String,
@@ -13,6 +14,7 @@ pub struct Claims {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[allow(dead_code)]
 pub enum AuthError {
     #[error("invalid token")]
     InvalidToken,
@@ -25,12 +27,14 @@ pub enum AuthError {
 }
 
 /// JWT の発行・検証を担う。Domain 層はこのサービスを知らない。
+#[allow(dead_code)]
 pub struct JwtAuthService {
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
     expires_in_secs: i64,
 }
 
+#[allow(dead_code)]
 impl JwtAuthService {
     pub fn new(secret: &[u8], expires_in_secs: i64) -> Self {
         Self {
@@ -94,8 +98,8 @@ mod tests {
 
     #[test]
     fn validate_rejects_expired_token() {
-        // expires_in_secs = -1 で即時期限切れトークンを生成
-        let svc = JwtAuthService::new(b"test-secret-key", -1);
+        // jsonwebtoken のデフォルト leeway は 60 秒なので、それを超える過去日時にする
+        let svc = JwtAuthService::new(b"test-secret-key", -120);
         let token = svc.generate_token("user-456").unwrap();
 
         let validator = make_service();
