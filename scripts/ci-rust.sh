@@ -62,9 +62,13 @@ else
 fi
 
 # ── cargo fmt ───────────────────────────────────────────────
-info "cargo fmt"
-cargo fmt --all
-ok "fmt: OK"
+info "cargo fmt --check"
+if cargo fmt --all -- --check; then
+  ok "fmt: OK"
+else
+  fail "fmt: フォーマットが崩れています。'cargo fmt' を実行してください。"
+  exit 1
+fi
 
 # ── cargo clippy ────────────────────────────────────────────
 info "cargo clippy"
