@@ -38,11 +38,23 @@ pub fn create_router(pool: PgPool) -> Router {
     // Arc で包んで複数のリポジトリで PgPool を共有する
     let pool = Arc::new(pool);
 
-    // JWT_SECRET 未設定時は開発用のデフォルト鍵を使用する（本番では必ず設定すること）
-    let auth_service = Arc::new(JwtAuthService::from_env().unwrap_or_else(|_| {
-        tracing::warn!("JWT_SECRET が未設定です。開発用のデフォルト秘密鍵を使用します（本番では設定してください）");
-        JwtAuthService::new(b"dev-secret-do-not-use-in-production", 60 * 60 * 24)
-    }));
+    // JWT_SECRET は本番相当の環境では必須。
+    // APP_ENV=development の場合に限り、未設定時は開発用のデフォルト鍵にフォールバックする。
+    // （APP_ENV が未設定/development以外の場合は fail-fast させ、既知の固定シークレットで
+    //   JWT が署名されてしまう認証バイパスを防ぐ）
+    let is_development = std::env::var("APP_ENV").as_deref() == Ok("development");
+    let auth_service = Arc::new(match JwtAuthService::from_env() {
+        Ok(service) => service,
+        Err(_) if is_development => {
+            tracing::warn!(
+                "JWT_SECRET が未設定です。開発用のデフォルト秘密鍵を使用します（本番では設定してください）"
+            );
+            JwtAuthService::new(b"dev-secret-do-not-use-in-production", 60 * 60 * 24)
+        }
+        Err(err) => {
+            panic!("JWT_SECRET must be set outside of development (APP_ENV=development): {err}")
+        }
+    });
 
     // 各リポジトリに PgPool を渡して生成し、AppState に集約する
     // （ここが DI の組み立てポイント。テスト時は InMemory 実装に差し替え可能）
