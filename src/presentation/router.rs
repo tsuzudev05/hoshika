@@ -17,13 +17,16 @@ use axum::{
 };
 use sqlx::PgPool;
 
-use crate::infrastructure::db::{
-    postgres_budget_repository::PostgresBudgetRepository,
-    postgres_category_repository::PostgresCategoryRepository,
-    postgres_wish_item_repository::PostgresWishItemRepository,
+use crate::infrastructure::{
+    auth::JwtAuthService,
+    db::{
+        postgres_budget_repository::PostgresBudgetRepository,
+        postgres_category_repository::PostgresCategoryRepository,
+        postgres_wish_item_repository::PostgresWishItemRepository,
+    },
 };
 use crate::presentation::{
-    handlers::{budgets, health, wish_items},
+    handlers::{auth, budgets, health, wish_items},
     state::AppState,
 };
 
@@ -35,17 +38,27 @@ pub fn create_router(pool: PgPool) -> Router {
     // Arc で包んで複数のリポジトリで PgPool を共有する
     let pool = Arc::new(pool);
 
+    // JWT_SECRET 未設定時は開発用のデフォルト鍵を使用する（本番では必ず設定すること）
+    let auth_service = Arc::new(JwtAuthService::from_env().unwrap_or_else(|_| {
+        tracing::warn!("JWT_SECRET が未設定です。開発用のデフォルト秘密鍵を使用します（本番では設定してください）");
+        JwtAuthService::new(b"dev-secret-do-not-use-in-production", 60 * 60 * 24)
+    }));
+
     // 各リポジトリに PgPool を渡して生成し、AppState に集約する
     // （ここが DI の組み立てポイント。テスト時は InMemory 実装に差し替え可能）
     let state = AppState {
         wish_item_repo: Arc::new(PostgresWishItemRepository::new(pool.clone())),
         category_repo: Arc::new(PostgresCategoryRepository::new(pool.clone())),
         budget_repo: Arc::new(PostgresBudgetRepository::new(pool)),
+        auth_service,
     };
 
     Router::new()
         // ヘルスチェック — サーバーが起動しているか確認するだけのエンドポイント
         .route("/health", get(health::health_check))
+        // 認証 — JWT の発行と検証
+        .route("/auth/token", post(auth::issue_token))
+        .route("/auth/verify", get(auth::verify_token))
         // 欲しいものリスト — 一覧取得 / 新規追加
         .route(
             "/wish-items",

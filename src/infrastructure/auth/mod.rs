@@ -34,7 +34,6 @@ use serde::{Deserialize, Serialize};
 /// フィールド名は JWT 標準（RFC 7519）の登録済みクレーム名をそのまま使用する。
 /// serde によって JSON にシリアライズされるため、名前を変えると JWT の仕様から外れる。
 #[derive(Debug, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct JwtClaims {
     /// subject — トークンの主体（このアプリではユーザー ID）
     pub sub: String,
@@ -46,7 +45,6 @@ pub struct JwtClaims {
 
 /// JWT の発行・検証で発生するエラー。
 #[derive(Debug, thiserror::Error)]
-#[allow(dead_code)]
 pub enum AuthError {
     /// 署名が不正、またはフォーマットが壊れているトークン
     #[error("invalid token")]
@@ -66,7 +64,6 @@ pub enum AuthError {
 ///
 /// 秘密鍵は HMAC-SHA256（HS256）で署名・検証に使われる。
 /// 同じ秘密鍵から EncodingKey（署名用）と DecodingKey（検証用）を別々に生成して保持する。
-#[allow(dead_code)]
 pub struct JwtAuthService {
     /// トークンへの署名に使うキー（generate_token で使用）
     encoding_key: EncodingKey,
@@ -76,7 +73,6 @@ pub struct JwtAuthService {
     expires_in_secs: i64,
 }
 
-#[allow(dead_code)]
 impl JwtAuthService {
     pub fn new(secret: &[u8], expires_in_secs: i64) -> Self {
         Self {
@@ -95,6 +91,7 @@ impl JwtAuthService {
     /// `user_id` を subject にした JWT を発行する。
     ///
     /// 生成されるトークンには sub / exp / iat が含まれる。
+    /// 失敗時はサーバーログにエラーを記録する。
     pub fn generate_token(&self, user_id: &str) -> Result<String, AuthError> {
         let now = Utc::now().timestamp();
         let claims = JwtClaims {
@@ -102,19 +99,29 @@ impl JwtAuthService {
             exp: now + self.expires_in_secs,
             iat: now,
         };
-        encode(&Header::default(), &claims, &self.encoding_key)
-            .map_err(|e| AuthError::GenerationFailed(e.to_string()))
+        encode(&Header::default(), &claims, &self.encoding_key).map_err(|e| {
+            let err = AuthError::GenerationFailed(e.to_string());
+            tracing::error!(user_id, error = %err, "JWT 発行失敗");
+            err
+        })
     }
 
     /// トークンの署名と有効期限を検証し、成功したら `JwtClaims` を返す。
     ///
-    /// 失敗時は `AuthError::Expired`（期限切れ）か `AuthError::InvalidToken`（それ以外）を返す。
+    /// 失敗時は `AuthError::Expired`（期限切れ）か `AuthError::InvalidToken`（それ以外）を返し、
+    /// どちらもサーバーログに記録する。
     pub fn validate_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
         decode::<JwtClaims>(token, &self.decoding_key, &Validation::default())
             .map(|data| data.claims)
             .map_err(|e| match e.kind() {
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::Expired,
-                _ => AuthError::InvalidToken,
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    tracing::warn!("JWT 検証失敗: トークンの有効期限切れ");
+                    AuthError::Expired
+                }
+                _ => {
+                    tracing::warn!(error = %e, "JWT 検証失敗: 無効なトークン");
+                    AuthError::InvalidToken
+                }
             })
     }
 }
