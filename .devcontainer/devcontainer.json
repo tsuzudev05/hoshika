@@ -60,6 +60,7 @@
     "apt":             "sudo apt-get update -qq && sudo apt-get install -y postgresql-client",
     "rust-components": "rustup component add rust-src rust-analyzer",
     "claude-code":     "npm install -g @anthropic-ai/claude-code",
+    "claude-dir":      "mkdir -p /home/vscode/.claude/session-env && chmod 755 /home/vscode/.claude/session-env",
     "rust":            "cargo build 2>/dev/null || true",
     "frontend":        "cd /workspace/frontend && npm install 2>/dev/null || true"
   },
