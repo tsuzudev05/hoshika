@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchWishItems } from '../api/wishItems'
 import { ApiError } from '../api/client'
+import './WishItemList.css'
 
 export function WishItemList() {
   const { data, isPending, isError, error } = useQuery({
@@ -9,12 +10,23 @@ export function WishItemList() {
   })
 
   if (isPending) {
-    return <p>読み込み中...</p>
+    return (
+      <div className="wish-item-list__status" role="status" aria-live="polite">
+        <span className="wish-item-list__spinner" aria-hidden="true" />
+        <span>読み込み中...</span>
+      </div>
+    )
   }
 
   if (isError) {
-    const message = error instanceof ApiError ? error.message : '取得に失敗しました'
-    return <p role="alert">{message}</p>
+    return (
+      <p className="wish-item-list__error" role="alert">
+        欲しいものリストを取得できませんでした。時間をおいて再度お試しください。
+        {error instanceof ApiError && (
+          <span className="wish-item-list__error-detail">詳細: {error.message}</span>
+        )}
+      </p>
+    )
   }
 
   if (data.length === 0) {
