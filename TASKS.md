@@ -22,6 +22,11 @@
   - [ ] カテゴリフィルター（※ `GET /categories` 相当のエンドポイントが現状バックエンドに無いため、先にAPI追加が必要）
 - [ ] **衝動買い防止フロー** — 「本当に欲しいか？」チェックUI（`POST /wish-items/:id/review`）
 - [x] **TanStack Queryで状態管理** — `QueryClientProvider` 設定済み、一覧取得は `useQuery` 導入済み。追加/レビューの `useMutation` は未着手
+- [ ] **フロントエンドのテスト整備** — UIコンポーネント・衝動買い防止フローの実装が一段落した時点で着手（Phase02/03の「層の実装後にテストを整備する」流れに合わせる）
+  - [ ] テスト基盤導入（Vitest + @testing-library/react + jsdom + msw）
+  - [ ] `api/client.ts` のユニットテスト — `ApiError` への変換ロジック（正常系 / `{error}` 形式 / パース不能時のフォールバック）
+  - [ ] 各コンポーネントのテスト（`WishItemList` の loading / error / empty / data 各状態など）
+  - [ ] E2Eテスト（Playwright）はPhase05のタスクとして別途担当　→ [hoshika-roadmap.md](./hoshika-roadmap.md) Phase 05 参照
 - [ ] **レスポンシブ対応**（スマホファースト）
 
 ### 学習（並行）
