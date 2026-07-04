@@ -14,13 +14,18 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...init?.headers,
+      },
+    })
+  } catch {
+    throw new ApiError(0, 'サーバーに接続できませんでした。ネットワーク接続を確認してください。')
+  }
 
   const body: unknown = await res.json().catch(() => null)
 
@@ -28,6 +33,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const message =
       (body as { error?: string } | null)?.error ?? `request failed with status ${res.status}`
     throw new ApiError(res.status, message)
+  }
+
+  if (body === null) {
+    throw new ApiError(res.status, 'サーバーから予期しない形式のレスポンスが返されました。')
   }
 
   return body as T
