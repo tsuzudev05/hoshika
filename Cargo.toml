@@ -32,6 +32,9 @@ async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Auth
+jsonwebtoken = "9"
+
 # Config
 dotenvy = "0.15"
 

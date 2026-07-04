@@ -12,13 +12,9 @@
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "mounts": [
-    "source=claude-code-config,target=/home/vscode/.claude,type=volume"
-  ],
 
   "customizations": {
     "vscode": {
@@ -38,6 +34,9 @@
         "rust-analyzer.server.path": "rust-analyzer",
         "rust-analyzer.check.command": "clippy",
         "rust-analyzer.cargo.features": "all",
+        "rust-analyzer.inlayHints.typeHints.enable": true,
+        "rust-analyzer.inlayHints.chainingHints.enable": true,
+        "rust-analyzer.inlayHints.parameterHints.enable": true,
         "editor.formatOnSave": true,
         "[rust]": {
           "editor.defaultFormatter": "rust-lang.rust-analyzer"
@@ -52,10 +51,16 @@
     }
   },
 
+  "postStartCommand": {
+    "bash-history": "grep -qxF 'scripts/ci-rust.sh' ~/.bash_history || echo 'scripts/ci-rust.sh' >> ~/.bash_history"
+  },
+
   "postCreateCommand": {
     "git-safe":        "git config --global --add safe.directory /workspace",
     "apt":             "sudo apt-get update -qq && sudo apt-get install -y postgresql-client",
     "rust-components": "rustup component add rust-src rust-analyzer",
+    "claude-code":     "npm install -g @anthropic-ai/claude-code",
+    "claude-dir":      "mkdir -p /home/vscode/.claude/session-env && chmod 755 /home/vscode/.claude/session-env",
     "rust":            "cargo build 2>/dev/null || true",
     "frontend":        "cd /workspace/frontend && npm install 2>/dev/null || true"
   },
