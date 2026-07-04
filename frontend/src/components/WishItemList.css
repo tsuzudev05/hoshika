@@ -28,3 +28,9 @@
   font-size: 0.85em;
   color: #666;
 }
+
+.wish-item-list__actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
