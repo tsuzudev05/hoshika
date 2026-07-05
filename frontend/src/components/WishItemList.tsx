@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWishItems, reviewWishItem } from '../api/wishItems'
-import { ApiError } from '../api/client'
+import { toUserFacingError } from '../utils/errors'
+import { WishItemCard } from './WishItemCard'
 import './WishItemList.css'
 
 export function WishItemList() {
@@ -28,13 +29,15 @@ export function WishItemList() {
   }
 
   if (isError) {
+    const { message, detail } = toUserFacingError(
+      error,
+      '欲しいものリストを取得できませんでした。時間をおいて再度お試しください。',
+    )
     return (
       <div className="wish-item-list__error" role="alert">
         <p>
-          欲しいものリストを取得できませんでした。時間をおいて再度お試しください。
-          {error instanceof ApiError && (
-            <span className="wish-item-list__error-detail">詳細: {error.message}</span>
-          )}
+          {message}
+          {detail && <span className="wish-item-list__error-detail">詳細: {detail}</span>}
         </p>
         <button type="button" onClick={() => refetch()}>
           再試行
@@ -48,42 +51,19 @@ export function WishItemList() {
   }
 
   return (
-    <ul>
+    <ul className="wish-item-list">
       {data.map((item) => (
-        <li key={item.id}>
-          <span>{item.name}</span>
-          {' — '}
-          <span>￥{item.price.toLocaleString()}</span>
-          {' / '}
-          <span>{item.category_name}</span>
-          {' / '}
-          <span>{item.status}</span>
-          {item.status === 'Inbox' && (
-            <span className="wish-item-list__actions">
-              <button
-                type="button"
-                disabled={reviewMutation.isPending}
-                onClick={() => reviewMutation.mutate({ id: item.id, stillWant: true })}
-              >
-                欲しい
-              </button>
-              <button
-                type="button"
-                disabled={reviewMutation.isPending}
-                onClick={() => reviewMutation.mutate({ id: item.id, stillWant: false })}
-              >
-                やめておく
-              </button>
-            </span>
-          )}
-          {reviewMutation.isError && reviewMutation.variables?.id === item.id && (
-            <span className="wish-item-list__error-detail">
-              {reviewMutation.error instanceof ApiError
-                ? reviewMutation.error.message
-                : '更新に失敗しました。もう一度お試しください。'}
-            </span>
-          )}
-        </li>
+        <WishItemCard
+          key={item.id}
+          item={item}
+          isReviewing={reviewMutation.isPending && reviewMutation.variables?.id === item.id}
+          reviewError={
+            reviewMutation.isError && reviewMutation.variables?.id === item.id
+              ? toUserFacingError(reviewMutation.error, '更新に失敗しました。もう一度お試しください。')
+              : undefined
+          }
+          onReview={(stillWant) => reviewMutation.mutate({ id: item.id, stillWant })}
+        />
       ))}
     </ul>
   )
