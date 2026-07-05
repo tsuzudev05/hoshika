@@ -6,6 +6,18 @@
 
 ---
 
+## ドキュメント
+
+| ドキュメント | 内容 |
+|---|---|
+| [DEVELOPMENT.md](./DEVELOPMENT.md) | 開発環境のセットアップ・動作確認・トラブルシューティング |
+| [TASKS.md](./TASKS.md) | 現在の進捗（Active なタスク・完了記録） |
+| [hoshika-roadmap.md](./hoshika-roadmap.md) | 全フェーズのロードマップ・学習リソース |
+
+このREADMEは、ドメインモデル・設計思想のリファレンスとして書かれている。動かし方は [DEVELOPMENT.md](./DEVELOPMENT.md) を参照。
+
+---
+
 ## Glossary（ユビキタス言語）
 
 このプロジェクトで使う言葉を統一する。コード・会話・ドキュメントすべてでこの用語を使う。
@@ -149,12 +161,31 @@ Infrastructure（SQLx / 外部API）
 
 ---
 
+## API エンドポイント
+
+`src/presentation/router.rs` で定義されている現在のAPI。すべてのエラーレスポンスは `{"error": string}` 形式。
+
+| メソッド | パス | 概要 |
+|---|---|---|
+| `GET` | `/health` | ヘルスチェック |
+| `POST` | `/auth/token` | `user_id` からJWTを発行 |
+| `GET` | `/auth/verify` | `Authorization: Bearer <token>` を検証 |
+| `GET` | `/wish-items` | 欲しいもの一覧を取得 |
+| `POST` | `/wish-items` | 欲しいものを追加（`Inbox` ステータスで登録） |
+| `POST` | `/wish-items/:id/review` | レビューしてステータス遷移（`still_want: true/false`） |
+| `GET` | `/categories` | カテゴリ一覧を取得（欲しいもの追加時の選択肢） |
+| `GET` | `/budgets/status?year=&month=` | 指定年月の予算・残高・超過有無を取得 |
+
+フロントエンドからは `frontend/src/api/` 配下の関数（`wishItems.ts` / `budgets.ts` / `categories.ts`）経由でのみ呼び出す。
+
+---
+
 ## 技術スタック
 
 - **Backend**: Rust (Axum + SQLx)
-- **Frontend**: React + TypeScript (Vite)
+- **Frontend**: React + TypeScript (Vite + TanStack Query)
 - **DB**: PostgreSQL
 - **Infra**: Fly.io
 - **Architecture**: DDD + Clean Architecture
 
-詳細な設計方針は [hoshika-roadmap.md](./hoshika-roadmap.md) を参照。
+詳細な設計方針は [hoshika-roadmap.md](./hoshika-roadmap.md)、現在の進捗は [TASKS.md](./TASKS.md) を参照。

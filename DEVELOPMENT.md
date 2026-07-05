@@ -102,10 +102,9 @@ cargo run
 # 別ターミナルで確認
 curl localhost:3000/health
 # → {"status":"ok"}
-
-curl localhost:3000/wish-items
-# → []（空のリスト）
 ```
+
+全エンドポイントの一覧は [README.md](./README.md) の「API エンドポイント」を参照。
 
 ### ドメイン層のテスト（DB・Axum 不要）
 
@@ -113,15 +112,26 @@ curl localhost:3000/wish-items
 cargo test
 ```
 
-`WishItem` のステータス遷移テストなどが通ればOK。
+`WishItem` のステータス遷移テストなどが通ればOK。CIと同じ検査（fmt / clippy / build / test）をまとめて実行する場合は `bash scripts/ci-rust.sh`。
 
 ### フロントエンド（React + TypeScript / Vite）
 
 ```bash
 cd frontend
 npm run dev
-# → http://localhost:5173 でプレースホルダページが表示されれば OK
+# → http://localhost:5173 で画面が表示されれば OK
 ```
+
+初回は `wish_items` が空のため「欲しいものはまだ登録されていません」と表示される。サンプルデータを投入する場合は [`scripts/seed-dev-data.sh`](./scripts/seed-dev-data.sh) を実行する。
+
+### フロントエンドのテスト
+
+```bash
+cd frontend
+npm test
+```
+
+`WishItemList` / `WishItemCard` / `BudgetMeter` / `api/client.ts` のテストが通ればOK。CIと同じ検査（type-check / lint / test / build）をまとめて実行する場合は `bash scripts/ci-frontend.sh`。
 
 ---
 
@@ -162,16 +172,30 @@ src/
 │   └── events/         # DomainEvent 定義
 ├── application/        # ユースケース層（HTTP を知らない）
 │   ├── use_cases/      # AddWishItem / ReviewWishItem / GetBudgetStatus
-│   └── dto/            # 入出力データ構造
+│   └── dto/            # 入出力データ構造（WishItem / Budget / Category）
 ├── infrastructure/     # 外部依存の実装
-│   └── db/             # Postgres 向け Repository impl
+│   ├── db/             # Postgres 向け Repository impl
+│   ├── in_memory/      # テスト用 InMemory Repository impl
+│   └── auth/           # JwtAuthService
 └── presentation/       # HTTP レイヤー
     ├── router.rs       # ルーティング定義
-    └── handlers/       # health / wish_items / budgets ハンドラ
+    └── handlers/       # health / auth / wish_items / categories / budgets ハンドラ
 
 frontend/
-├── src/App.tsx         # プレースホルダ（Phase 04 で UI 実装予定）
-└── vite.config.ts      # Vite 設定（API プロキシ等）
+├── src/
+│   ├── App.tsx         # ルートコンポーネント
+│   ├── api/            # APIコール関数（client.ts / wishItems.ts / budgets.ts / categories.ts）
+│   ├── components/     # WishItemList / WishItemCard / BudgetMeter / AddWishItemForm
+│   ├── utils/          # date / errors / wishItemStatus
+│   └── test/           # Vitest セットアップ・mswモックハンドラー
+└── vite.config.ts      # Vite 設定（API プロキシ・Vitest設定）
+
+scripts/
+├── dev-setup.sh          # 初回セットアップ（.env コピー）
+├── seed-dev-data.sh      # 開発用サンプルデータ投入（budgets / wish_items）
+├── ci-rust.sh            # ローカルでRust CIと同じ検査を実行
+├── ci-frontend.sh        # ローカルでFrontend CIと同じ検査を実行
+└── check-layer-deps.sh   # レイヤー依存ルールの検証
 ```
 
 ---
@@ -194,6 +218,12 @@ cd frontend
 npm run dev         # 開発サーバー起動
 npm run build       # 本番ビルド
 npm run lint        # ESLint
+npm test            # Vitest（ユニット・コンポーネントテスト）
+
+# スクリプト（すべてリポジトリルートから実行）
+bash scripts/ci-rust.sh        # Rust CI と同じ検査（fmt / clippy / build / test）
+bash scripts/ci-frontend.sh    # Frontend CI と同じ検査（type-check / lint / test / build）
+bash scripts/seed-dev-data.sh  # budgets / wish_items にサンプルデータを投入
 ```
 
 ---
@@ -236,7 +266,7 @@ sudo apt-get install -y postgresql-client
 
 ### `Did not find any relations`（psql で \dt が空）
 
-マイグレーションはサーバー起動時に自動適用されます。一度 `cargo run` でサーバーを起動してから再確認してください。
+まだ `cargo run` でサーバーを起動していない可能性がある（マイグレーションはサーバー起動時に自動適用される。[「PostgreSQL」](#postgresqldb-コンテナ) 参照）。
 
 ```bash
 cargo run
