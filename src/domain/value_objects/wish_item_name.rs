@@ -14,10 +14,11 @@ pub enum WishItemNameError {
 impl WishItemName {
     pub fn new(value: impl Into<String>) -> Result<Self, WishItemNameError> {
         let value = value.into();
-        if value.is_empty() {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
             return Err(WishItemNameError::Empty);
         }
-        Ok(Self(value))
+        Ok(Self(trimmed.to_string()))
     }
 
     pub fn value(&self) -> &str {
@@ -40,5 +41,18 @@ mod tests {
             WishItemName::new(""),
             Err(WishItemNameError::Empty)
         ));
+    }
+
+    #[test]
+    fn whitespace_only_name_is_error() {
+        assert!(matches!(
+            WishItemName::new("   "),
+            Err(WishItemNameError::Empty)
+        ));
+    }
+
+    #[test]
+    fn name_is_trimmed() {
+        assert_eq!(WishItemName::new("  テスト  ").unwrap().value(), "テスト");
     }
 }

@@ -12,6 +12,7 @@ export function AddWishItemForm() {
   const [price, setPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [memo, setMemo] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
 
   const categoriesQuery = useQuery({
     queryKey: ['categories'],
@@ -31,12 +32,25 @@ export function AddWishItemForm() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const parsedPrice = Number(price)
-    if (!name || !categoryId || Number.isNaN(parsedPrice)) {
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setFormError('名前を入力してください。')
       return
     }
+    if (!categoryId) {
+      setFormError('カテゴリを選択してください。')
+      return
+    }
+    const parsedPrice = Number(price)
+    if (!Number.isInteger(parsedPrice) || parsedPrice < 0) {
+      setFormError('価格は0以上の整数で入力してください。')
+      return
+    }
+
+    setFormError(null)
     addMutation.mutate({
-      name,
+      name: trimmedName,
       price: parsedPrice,
       category_id: categoryId,
       memo: memo || undefined,
@@ -113,7 +127,9 @@ export function AddWishItemForm() {
         追加する
       </button>
 
-      {addMutation.isError && (
+      {formError && <p className="add-wish-item-form__error">{formError}</p>}
+
+      {!formError && addMutation.isError && (
         <p className="add-wish-item-form__error">
           {toUserFacingError(addMutation.error, '追加に失敗しました。もう一度お試しください。').message}
         </p>
