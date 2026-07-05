@@ -1,5 +1,4 @@
-// TODO: 予算メーターのUI
-
+import { BudgetMeter } from './components/BudgetMeter'
 import { WishItemList } from './components/WishItemList'
 
 export default function App() {
@@ -7,6 +6,7 @@ export default function App() {
     <div>
       <h1>ホシカ</h1>
       <p>欲しいものリスト × 予算管理アプリ</p>
+      <BudgetMeter />
       <WishItemList />
     </div>
   )
