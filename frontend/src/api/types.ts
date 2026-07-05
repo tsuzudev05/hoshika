@@ -31,3 +31,8 @@ export interface BudgetStatus {
   balance: number
   is_exceeded: boolean
 }
+
+export interface Category {
+  id: string
+  name: string
+}

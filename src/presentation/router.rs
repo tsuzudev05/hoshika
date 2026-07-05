@@ -26,7 +26,7 @@ use crate::infrastructure::{
     },
 };
 use crate::presentation::{
-    handlers::{auth, budgets, health, wish_items},
+    handlers::{auth, budgets, categories, health, wish_items},
     state::AppState,
 };
 
@@ -76,6 +76,8 @@ pub fn create_router(pool: PgPool) -> Router {
             "/wish-items",
             get(wish_items::list_wish_items).post(wish_items::add_wish_item),
         )
+        // カテゴリ一覧 — 欲しいもの追加フォームの選択肢用
+        .route("/categories", get(categories::list_categories))
         // 予算状況 — 指定年月の予算と残高を返す（クエリパラメータ: ?year=&month=）
         .route("/budgets/status", get(budgets::get_budget_status))
         // 欲しいものレビュー — 衝動買い防止チェック（still_want: true/false）
