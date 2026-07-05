@@ -19,10 +19,10 @@
   - [x] 一覧表示 — `WishItemList` で `GET /wish-items` を `useQuery` 経由表示　完了（2026-07-04）
   - [x] カード化・詳細表示 — `WishItemCard` に切り出し、価格・カテゴリ・メモ・登録日を表示（ステータスはバッジ表示）　完了（2026-07-05）
   - [x] 予算メーター — `BudgetMeter` で当月の `GET /budgets/status` を表示（予算・残高・進捗バー・超過バッジ、未設定時は404を空状態として表示）　完了（2026-07-05）
-  - [ ] カテゴリフィルター（※ `GET /categories` 相当のエンドポイントが現状バックエンドに無いため、先にAPI追加が必要）
+  - [ ] カテゴリフィルター（`GET /categories` は追加済みなのでブロック解除。UI未着手）
 - [ ] **衝動買い防止フロー** — 「本当に欲しいか？」チェックUI（`POST /wish-items/:id/review`）
   - [x] `WishItemList` にレビュー操作（「欲しい」/「やめておく」ボタン、`Inbox` ステータスのみ表示）を実装　完了（2026-07-04）
-  - [ ] 追加（`POST /wish-items`）フォーム — `GET /categories` 相当のエンドポイントが無いため保留（下記参照）
+  - [x] 追加（`POST /wish-items`）フォーム — `AddWishItemForm` を実装。バックエンドに `GET /categories`（`CategoryOutput` / `list_categories` ハンドラー）を追加し、カテゴリ選択のブロックを解消　完了（2026-07-05、要DevContainer側で `cargo build` / `npm test` 確認）
 - [x] **TanStack Queryで状態管理** — `QueryClientProvider` 設定済み。一覧取得（`useQuery`）・レビュー（`useMutation` + `invalidateQueries`）を導入済み。追加の `useMutation` は上記の理由で未着手
 - [ ] **フロントエンドのテスト整備** — UIコンポーネント・衝動買い防止フローの実装が一段落した時点で着手（Phase02/03の「層の実装後にテストを整備する」流れに合わせる）
   - [x] テスト基盤導入（Vitest + @testing-library/react + jsdom + msw）　完了（2026-07-05）
