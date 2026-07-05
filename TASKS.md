@@ -28,7 +28,8 @@
   - [x] テスト基盤導入（Vitest + @testing-library/react + jsdom + msw）　完了（2026-07-05）
   - [x] `api/client.ts` のユニットテスト — 正常系 / `{error}` 形式 / パース不能時のフォールバック / ネットワークエラー / POST送信内容　完了（2026-07-05、6テスト）
   - [x] `WishItemList` のテスト — loading / error(+再試行ボタン) / empty / data / レビュー操作成功時の更新　完了（2026-07-05、5テスト）
-  - [ ] `WishItemCard` / `BudgetMeter` 単体のテストは未着手
+  - [x] `WishItemCard` のテスト — 詳細表示 / メモ空欄時の非表示 / Inboxのみレビューボタン表示 / onReviewの引数 / disabled / reviewError表示　完了（2026-07-05、6テスト）
+  - [x] `BudgetMeter` のテスト — loading / 404時の空状態 / それ以外のエラー(+再試行) / 予算表示 / 超過バッジ　完了（2026-07-05、5テスト、`vi.setSystemTime` で当月判定を固定）
   - [ ] E2Eテスト（Playwright）はPhase05のタスクとして別途担当　→ [hoshika-roadmap.md](./hoshika-roadmap.md) Phase 05 参照
 - [ ] **レスポンシブ対応**（スマホファースト）
 
