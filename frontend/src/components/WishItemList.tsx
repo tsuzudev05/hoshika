@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWishItems, reviewWishItem } from '../api/wishItems'
 import { ApiError } from '../api/client'
+import { WishItemCard } from './WishItemCard'
 import './WishItemList.css'
 
 export function WishItemList() {
@@ -48,42 +49,21 @@ export function WishItemList() {
   }
 
   return (
-    <ul>
+    <ul className="wish-item-list">
       {data.map((item) => (
-        <li key={item.id}>
-          <span>{item.name}</span>
-          {' — '}
-          <span>￥{item.price.toLocaleString()}</span>
-          {' / '}
-          <span>{item.category_name}</span>
-          {' / '}
-          <span>{item.status}</span>
-          {item.status === 'Inbox' && (
-            <span className="wish-item-list__actions">
-              <button
-                type="button"
-                disabled={reviewMutation.isPending}
-                onClick={() => reviewMutation.mutate({ id: item.id, stillWant: true })}
-              >
-                欲しい
-              </button>
-              <button
-                type="button"
-                disabled={reviewMutation.isPending}
-                onClick={() => reviewMutation.mutate({ id: item.id, stillWant: false })}
-              >
-                やめておく
-              </button>
-            </span>
-          )}
-          {reviewMutation.isError && reviewMutation.variables?.id === item.id && (
-            <span className="wish-item-list__error-detail">
-              {reviewMutation.error instanceof ApiError
+        <WishItemCard
+          key={item.id}
+          item={item}
+          isReviewing={reviewMutation.isPending && reviewMutation.variables?.id === item.id}
+          reviewError={
+            reviewMutation.isError && reviewMutation.variables?.id === item.id
+              ? reviewMutation.error instanceof ApiError
                 ? reviewMutation.error.message
-                : '更新に失敗しました。もう一度お試しください。'}
-            </span>
-          )}
-        </li>
+                : '更新に失敗しました。もう一度お試しください。'
+              : undefined
+          }
+          onReview={(stillWant) => reviewMutation.mutate({ id: item.id, stillWant })}
+        />
       ))}
     </ul>
   )

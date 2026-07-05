@@ -1,0 +1,71 @@
+.wish-item-card {
+  list-style: none;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.wish-item-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.wish-item-card__name {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.wish-item-card__status {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #eee;
+  color: #333;
+  white-space: nowrap;
+}
+
+.wish-item-card__status--nexttobuy {
+  background: #d7f0d7;
+  color: #1e6b1e;
+}
+
+.wish-item-card__status--purchased {
+  background: #e0e0e0;
+  color: #666;
+}
+
+.wish-item-card__status--archived {
+  background: #f2d7d7;
+  color: #8a2020;
+}
+
+.wish-item-card__details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.wish-item-card__details dt {
+  color: #666;
+}
+
+.wish-item-card__details dd {
+  margin: 0;
+}
+
+.wish-item-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.wish-item-card__error {
+  margin: 0.5rem 0 0;
+  font-size: 0.85em;
+  color: #666;
+}
