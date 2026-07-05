@@ -32,7 +32,7 @@ BUDGET_AMOUNT="${BUDGET_AMOUNT:-50000}"
 
 info "投入対象: ${YEAR}年${MONTH}月 / 予算 ${BUDGET_AMOUNT}円"
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOF
+psql -q "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOF
 -- 予算（実行時点の年月。新規作成時は amount = balance）
 INSERT INTO budgets (year, month, amount, balance)
 VALUES (${YEAR}, ${MONTH}, ${BUDGET_AMOUNT}, ${BUDGET_AMOUNT})
