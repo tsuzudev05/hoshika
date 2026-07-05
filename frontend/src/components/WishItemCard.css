@@ -69,3 +69,9 @@
   font-size: 0.85em;
   color: #666;
 }
+
+.wish-item-card__error-detail {
+  display: block;
+  font-size: 0.85em;
+  color: #999;
+}

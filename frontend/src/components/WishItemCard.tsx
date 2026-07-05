@@ -1,5 +1,6 @@
 import type { WishItem } from '../api/types'
 import { formatDate } from '../utils/date'
+import type { UserFacingError } from '../utils/errors'
 import { STATUS_LABELS } from '../utils/wishItemStatus'
 import './WishItemCard.css'
 
@@ -7,7 +8,7 @@ interface WishItemCardProps {
   item: WishItem
   onReview: (stillWant: boolean) => void
   isReviewing: boolean
-  reviewError?: string
+  reviewError?: UserFacingError
 }
 
 export function WishItemCard({ item, onReview, isReviewing, reviewError }: WishItemCardProps) {
@@ -54,7 +55,14 @@ export function WishItemCard({ item, onReview, isReviewing, reviewError }: WishI
         </div>
       )}
 
-      {reviewError && <p className="wish-item-card__error">{reviewError}</p>}
+      {reviewError && (
+        <p className="wish-item-card__error">
+          {reviewError.message}
+          {reviewError.detail && (
+            <span className="wish-item-card__error-detail">詳細: {reviewError.detail}</span>
+          )}
+        </p>
+      )}
     </li>
   )
 }
