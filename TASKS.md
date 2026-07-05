@@ -25,9 +25,10 @@
   - [ ] 追加（`POST /wish-items`）フォーム — `GET /categories` 相当のエンドポイントが無いため保留（下記参照）
 - [x] **TanStack Queryで状態管理** — `QueryClientProvider` 設定済み。一覧取得（`useQuery`）・レビュー（`useMutation` + `invalidateQueries`）を導入済み。追加の `useMutation` は上記の理由で未着手
 - [ ] **フロントエンドのテスト整備** — UIコンポーネント・衝動買い防止フローの実装が一段落した時点で着手（Phase02/03の「層の実装後にテストを整備する」流れに合わせる）
-  - [ ] テスト基盤導入（Vitest + @testing-library/react + jsdom + msw）
-  - [ ] `api/client.ts` のユニットテスト — `ApiError` への変換ロジック（正常系 / `{error}` 形式 / パース不能時のフォールバック）
-  - [ ] 各コンポーネントのテスト（`WishItemList` の loading / error / empty / data 各状態など）
+  - [x] テスト基盤導入（Vitest + @testing-library/react + jsdom + msw）　完了（2026-07-05）
+  - [x] `api/client.ts` のユニットテスト — 正常系 / `{error}` 形式 / パース不能時のフォールバック / ネットワークエラー / POST送信内容　完了（2026-07-05、6テスト）
+  - [x] `WishItemList` のテスト — loading / error(+再試行ボタン) / empty / data / レビュー操作成功時の更新　完了（2026-07-05、5テスト）
+  - [ ] `WishItemCard` / `BudgetMeter` 単体のテストは未着手
   - [ ] E2Eテスト（Playwright）はPhase05のタスクとして別途担当　→ [hoshika-roadmap.md](./hoshika-roadmap.md) Phase 05 参照
 - [ ] **レスポンシブ対応**（スマホファースト）
 

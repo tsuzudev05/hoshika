@@ -40,6 +40,15 @@ else
   exit 1
 fi
 
+# ── テスト ──────────────────────────────────────────────────
+info "vitest"
+if npm test; then
+  ok "test: OK"
+else
+  fail "test: テストが失敗しました。"
+  exit 1
+fi
+
 # ── build ───────────────────────────────────────────────────
 info "vite build"
 if npm run build; then
