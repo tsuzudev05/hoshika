@@ -84,6 +84,14 @@ export function AddWishItemForm() {
     )
   }
 
+  if (categoriesQuery.data.length === 0) {
+    return (
+      <p className="add-wish-item-form__empty">
+        カテゴリがまだ登録されていません。先にカテゴリを登録してください。
+      </p>
+    )
+  }
+
   return (
     <form className="add-wish-item-form" onSubmit={handleSubmit}>
       <h2 className="add-wish-item-form__title">欲しいものを追加</h2>

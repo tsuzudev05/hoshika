@@ -60,3 +60,8 @@
   font-size: 0.85em;
   color: #666;
 }
+
+.add-wish-item-form__empty {
+  color: #666;
+  margin-bottom: 1rem;
+}
