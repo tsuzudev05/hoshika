@@ -8,6 +8,7 @@
 
 .wish-item-card__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -60,8 +61,23 @@
 
 .wish-item-card__actions {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
   margin-top: 0.75rem;
+}
+
+.wish-item-card__actions button {
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .wish-item-card__actions {
+    flex-direction: row;
+  }
+
+  .wish-item-card__actions button {
+    width: auto;
+  }
 }
 
 .wish-item-card__error {

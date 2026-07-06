@@ -23,8 +23,28 @@ const sampleItem: WishItem = {
   added_at: '2026-07-05T00:00:00Z',
 }
 
+const otherCategoryItem: WishItem = {
+  id: '22222222-2222-2222-2222-222222222222',
+  name: 'ゲーミングマウス',
+  price: 8000,
+  category_name: '雑貨',
+  status: 'Inbox',
+  memo: '',
+  added_at: '2026-07-05T00:00:00Z',
+}
+
+const sampleCategories = [
+  { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', name: '書籍' },
+  { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', name: '雑貨' },
+]
+
+function mockCategories(categories = sampleCategories) {
+  server.use(http.get('/api/categories', () => HttpResponse.json(categories)))
+}
+
 describe('WishItemList', () => {
   it('読み込み中はスピナーを表示する', () => {
+    mockCategories()
     server.use(
       http.get('/api/wish-items', async () => {
         await new Promise((resolve) => setTimeout(resolve, 50))
@@ -38,6 +58,7 @@ describe('WishItemList', () => {
   })
 
   it('取得エラー時はメッセージと再試行ボタンを表示する', async () => {
+    mockCategories()
     server.use(http.get('/api/wish-items', () => HttpResponse.json({ error: 'boom' }, { status: 500 })))
 
     renderWithQueryClient(<WishItemList />)
@@ -48,6 +69,7 @@ describe('WishItemList', () => {
   })
 
   it('データが空のときは登録案内を表示する', async () => {
+    mockCategories()
     server.use(http.get('/api/wish-items', () => HttpResponse.json([])))
 
     renderWithQueryClient(<WishItemList />)
@@ -56,6 +78,7 @@ describe('WishItemList', () => {
   })
 
   it('データがあるときはカードを表示する', async () => {
+    mockCategories()
     server.use(http.get('/api/wish-items', () => HttpResponse.json([sampleItem])))
 
     renderWithQueryClient(<WishItemList />)
@@ -65,6 +88,7 @@ describe('WishItemList', () => {
   })
 
   it('レビュー操作が成功すると一覧が更新される', async () => {
+    mockCategories()
     let reviewed = false
     server.use(
       http.get('/api/wish-items', () =>
@@ -85,5 +109,59 @@ describe('WishItemList', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: '欲しい' })).not.toBeInTheDocument()
     })
+  })
+
+  it('カテゴリが1件もないときはフィルターを表示しない', async () => {
+    mockCategories([])
+    server.use(http.get('/api/wish-items', () => HttpResponse.json([sampleItem])))
+
+    renderWithQueryClient(<WishItemList />)
+
+    await screen.findByText('リーダブルコード')
+    expect(screen.queryByRole('group', { name: 'カテゴリで絞り込み' })).not.toBeInTheDocument()
+  })
+
+  it('カテゴリを選択すると該当カテゴリのみ表示される', async () => {
+    mockCategories()
+    server.use(http.get('/api/wish-items', () => HttpResponse.json([sampleItem, otherCategoryItem])))
+
+    renderWithQueryClient(<WishItemList />)
+    const user = userEvent.setup()
+
+    await screen.findByText('リーダブルコード')
+    expect(screen.getByText('ゲーミングマウス')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '書籍' }))
+
+    expect(screen.getByText('リーダブルコード')).toBeInTheDocument()
+    expect(screen.queryByText('ゲーミングマウス')).not.toBeInTheDocument()
+  })
+
+  it('該当データがないカテゴリを選択すると絞り込み結果なしメッセージを表示する', async () => {
+    mockCategories()
+    server.use(http.get('/api/wish-items', () => HttpResponse.json([sampleItem])))
+
+    renderWithQueryClient(<WishItemList />)
+    const user = userEvent.setup()
+
+    await screen.findByText('リーダブルコード')
+    await user.click(screen.getByRole('button', { name: '雑貨' }))
+
+    expect(await screen.findByText('選択したカテゴリの欲しいものはありません')).toBeInTheDocument()
+  })
+
+  it('「すべて」を選択するとフィルターが解除される', async () => {
+    mockCategories()
+    server.use(http.get('/api/wish-items', () => HttpResponse.json([sampleItem, otherCategoryItem])))
+
+    renderWithQueryClient(<WishItemList />)
+    const user = userEvent.setup()
+
+    await screen.findByText('リーダブルコード')
+    await user.click(screen.getByRole('button', { name: '書籍' }))
+    expect(screen.queryByText('ゲーミングマウス')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'すべて' }))
+    expect(await screen.findByText('ゲーミングマウス')).toBeInTheDocument()
   })
 })

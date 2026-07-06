@@ -65,3 +65,17 @@
   color: #666;
   margin-bottom: 1rem;
 }
+
+@media (min-width: 600px) {
+  .add-wish-item-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1rem;
+  }
+
+  .add-wish-item-form__title,
+  .add-wish-item-form button[type='submit'],
+  .add-wish-item-form__error {
+    grid-column: 1 / -1;
+  }
+}
