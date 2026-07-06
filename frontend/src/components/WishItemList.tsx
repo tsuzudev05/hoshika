@@ -1,14 +1,22 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchCategories } from '../api/categories'
 import { fetchWishItems, reviewWishItem } from '../api/wishItems'
 import { toUserFacingError } from '../utils/errors'
+import { CategoryFilter } from './CategoryFilter'
 import { WishItemCard } from './WishItemCard'
 import './WishItemList.css'
 
 export function WishItemList() {
   const queryClient = useQueryClient()
+  const [selectedCategory, setSelectedCategory] = useState('')
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['wish-items'],
     queryFn: fetchWishItems,
+  })
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories,
   })
 
   const reviewMutation = useMutation({
@@ -50,21 +58,39 @@ export function WishItemList() {
     return <p>欲しいものはまだ登録されていません</p>
   }
 
+  const filteredItems = selectedCategory
+    ? data.filter((item) => item.category_name === selectedCategory)
+    : data
+
   return (
-    <ul className="wish-item-list">
-      {data.map((item) => (
-        <WishItemCard
-          key={item.id}
-          item={item}
-          isReviewing={reviewMutation.isPending && reviewMutation.variables?.id === item.id}
-          reviewError={
-            reviewMutation.isError && reviewMutation.variables?.id === item.id
-              ? toUserFacingError(reviewMutation.error, '更新に失敗しました。もう一度お試しください。')
-              : undefined
-          }
-          onReview={(stillWant) => reviewMutation.mutate({ id: item.id, stillWant })}
+    <div className="wish-item-list__container">
+      {categoriesQuery.isSuccess && categoriesQuery.data.length > 0 && (
+        <CategoryFilter
+          categories={categoriesQuery.data}
+          selected={selectedCategory}
+          onChange={setSelectedCategory}
         />
-      ))}
-    </ul>
+      )}
+
+      {filteredItems.length === 0 ? (
+        <p>選択したカテゴリの欲しいものはありません</p>
+      ) : (
+        <ul className="wish-item-list">
+          {filteredItems.map((item) => (
+            <WishItemCard
+              key={item.id}
+              item={item}
+              isReviewing={reviewMutation.isPending && reviewMutation.variables?.id === item.id}
+              reviewError={
+                reviewMutation.isError && reviewMutation.variables?.id === item.id
+                  ? toUserFacingError(reviewMutation.error, '更新に失敗しました。もう一度お試しください。')
+                  : undefined
+              }
+              onReview={(stillWant) => reviewMutation.mutate({ id: item.id, stillWant })}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
