@@ -4,6 +4,7 @@ import { defineConfig, devices } from '@playwright/test'
 // Vite開発サーバーだけはこの設定が自動起動する。
 export default defineConfig({
   testDir: './e2e',
+  globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   workers: 1,

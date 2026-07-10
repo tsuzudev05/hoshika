@@ -6,11 +6,14 @@ async function addWishItem(
 ) {
   await page.getByLabel('名前').fill(options.name)
   await page.getByLabel('価格').fill(options.price)
-  await page.getByLabel('カテゴリ').selectOption({ label: options.category })
+  await page.getByRole('combobox', { name: 'カテゴリ' }).selectOption({ label: options.category })
   if (options.memo) {
     await page.getByLabel('メモ（任意）').fill(options.memo)
   }
   await page.getByRole('button', { name: '追加する' }).click()
+  // 追加のPOSTが完了するまで待つ。待たずに連続で呼ぶと、前の追加が完了する前に
+  // 次のフォーム入力が始まり、送信内容が競合するおそれがある。
+  await expect(page.getByRole('heading', { name: options.name, exact: true })).toBeVisible()
 }
 
 // テスト実行前に蓄積された既存データに依存しないよう、アサーションは

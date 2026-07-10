@@ -133,6 +133,32 @@ npm test
 
 `WishItemList` / `WishItemCard` / `BudgetMeter` / `api/client.ts` のテストが通ればOK。CIと同じ検査（type-check / lint / test / build）をまとめて実行する場合は `bash scripts/ci-frontend.sh`。
 
+### フロントエンドのE2Eテスト（Playwright）
+
+> ⚠️ **`npm install` は必ず DevContainer 内のターミナルで実行すること。** ホスト（Windows/macOS）側で `npm install` を実行すると、`node_modules` にホストOS向けのネイティブバイナリ（esbuild等）がインストールされ、DevContainer（Linux）内で動かなくなる。`package.json` の編集だけをホスト側エディタで行うのは問題ないが、インストールコマンドは必ずDevContainerのターミナルで実行する。
+
+初回のみ、Playwrightが使うブラウザ（Chromium）をDevContainer内にダウンロードする：
+
+```bash
+cd frontend
+npx playwright install chromium
+```
+
+E2Eテストの実行には、バックエンド（`cargo run`）とDBが別途起動している必要がある（Vite開発サーバーだけは `playwright.config.ts` の `webServer` 設定により自動起動する）：
+
+```bash
+# 別ターミナルでバックエンドを起動しておく
+cargo run
+
+# frontend ディレクトリで
+cd frontend
+npm run test:e2e
+```
+
+`e2e/wish-item-flow.spec.ts` のシナリオ（追加→一覧表示、レビュー操作によるステータス遷移、カテゴリフィルター）が通ればOK。
+
+> テストは実行のたびに `E2E` プレフィックス付きの名前で `wish_items` にデータを作成する。後片付け用の削除APIがまだ存在しないため、`playwright.config.ts` の `globalTeardown`（`e2e/global-teardown.ts`）が `DATABASE_URL` に直接接続し、`name LIKE 'E2E%'` の行をテスト終了後に削除する。`DATABASE_URL` が環境変数として設定されていない場合はクリーンアップがスキップされ警告が出るので、その場合は手動で `psql "$DATABASE_URL" -c "DELETE FROM wish_items WHERE name LIKE 'E2E%';"` を実行すること。
+
 ---
 
 ## ポート一覧
@@ -219,6 +245,7 @@ npm run dev         # 開発サーバー起動
 npm run build       # 本番ビルド
 npm run lint        # ESLint
 npm test            # Vitest（ユニット・コンポーネントテスト）
+npm run test:e2e    # Playwright（E2Eテスト。事前に cargo run でバックエンドを起動しておくこと）
 
 # スクリプト（すべてリポジトリルートから実行）
 bash scripts/ci-rust.sh        # Rust CI と同じ検査（fmt / clippy / build / test）
