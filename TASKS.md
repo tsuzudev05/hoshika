@@ -3,35 +3,27 @@
 > Phase 01 完了記録 → [TASKS-phase01.md](./TASKS-phase01.md)
 > Phase 02 完了記録 → [TASKS-phase02.md](./TASKS-phase02.md)
 > Phase 03 完了記録 → [TASKS-phase03.md](./TASKS-phase03.md)
+> Phase 04 完了記録 → [TASKS-phase04.md](./TASKS-phase04.md)
 
 ## Active
 
-### Phase 04 · フロントエンド実装（React + TypeScript）（8月〜）
+### Phase 05 · 品質・インフラ（9月〜）
 
-> **このフェーズで学ぶこと**: フロントエンドでも関心の分離を意識する
+> **このフェーズで学ぶこと**: 設計の良さはテストカバレッジと変更のしやすさで測る
 
-- [x] **Vite + React + TypeScript セットアップ** - 完了（既存のscaffold: vite.config.ts で `/api` → `:3000` にプロキシ設定済み）
-- [x] **API層の分離** - `frontend/src/api/` にAPIコール関数を集約　完了（2026-07-04）
-  - `client.ts` — fetchラッパー、`{error: string}` 形式のエラーレスポンスを `ApiError` に変換
-  - `types.ts` — バックエンドDTOと1対1対応の型（`WishItem` / `BudgetStatus` / 各Input型）
-  - `wishItems.ts` / `budgets.ts` — エンドポイントごとの関数（コンポーネントは直接fetchしない）
-- [x] **UIコンポーネント実装**（欲しいものカード・予算メーター・カテゴリフィルター）
-  - [x] 一覧表示 — `WishItemList` で `GET /wish-items` を `useQuery` 経由表示　完了（2026-07-04）
-  - [x] カード化・詳細表示 — `WishItemCard` に切り出し、価格・カテゴリ・メモ・登録日を表示（ステータスはバッジ表示）　完了（2026-07-05）
-  - [x] 予算メーター — `BudgetMeter` で当月の `GET /budgets/status` を表示（予算・残高・進捗バー・超過バッジ、未設定時は404を空状態として表示）　完了（2026-07-05）
-  - [x] カテゴリフィルター — `CategoryFilter` コンポーネントを追加し、`WishItemList` でカテゴリ選択によるクライアントサイド絞り込み（「すべて」/各カテゴリ切り替え、該当なし時のメッセージ表示）を実装　完了（2026-07-06）
-- [x] **衝動買い防止フロー** — 「本当に欲しいか？」チェックUI（`POST /wish-items/:id/review`）
-  - [x] `WishItemList` にレビュー操作（「欲しい」/「やめておく」ボタン、`Inbox` ステータスのみ表示）を実装　完了（2026-07-04）
-  - [x] 追加（`POST /wish-items`）フォーム — `AddWishItemForm` を実装。バックエンドに `GET /categories`（`CategoryOutput` / `list_categories` ハンドラー）を追加し、カテゴリ選択のブロックを解消　完了（2026-07-05、要DevContainer側で `cargo build` / `npm test` 確認）
-- [x] **TanStack Queryで状態管理** — `QueryClientProvider` 設定済み。一覧取得（`useQuery`）・レビュー（`useMutation` + `invalidateQueries`）を導入済み。追加の `useMutation` は上記の理由で未着手
-- [x] **フロントエンドのテスト整備** — UIコンポーネント・衝動買い防止フローの実装が一段落した時点で着手（Phase02/03の「層の実装後にテストを整備する」流れに合わせる）
-  - [x] テスト基盤導入（Vitest + @testing-library/react + jsdom + msw）　完了（2026-07-05）
-  - [x] `api/client.ts` のユニットテスト — 正常系 / `{error}` 形式 / パース不能時のフォールバック / ネットワークエラー / POST送信内容　完了（2026-07-05、6テスト）
-  - [x] `WishItemList` のテスト — loading / error(+再試行ボタン) / empty / data / レビュー操作成功時の更新　完了（2026-07-05、5テスト）
-  - [x] `WishItemCard` のテスト — 詳細表示 / メモ空欄時の非表示 / Inboxのみレビューボタン表示 / onReviewの引数 / disabled / reviewError表示　完了（2026-07-05、6テスト）
-  - [x] `BudgetMeter` のテスト — loading / 404時の空状態 / それ以外のエラー(+再試行) / 予算表示 / 超過バッジ　完了（2026-07-05、5テスト、`vi.setSystemTime` で当月判定を固定）
-  - [x] E2Eテスト（Playwright）はPhase05のタスクとして別途担当　→ [hoshika-roadmap.md](./hoshika-roadmap.md) Phase 05 参照
-- [x] **レスポンシブ対応**（スマホファースト） — `App.css` にモバイルファーストのコンテナ・タイポグラフィ・ボタンの基本スタイルを追加し、`min-width` メディアクエリで640px→720pxへ段階的に拡張。`AddWishItemForm` は600px以上で2カラムグリッドに、`WishItemCard` のレビューボタンは480px未満で縦積み・以上で横並びに切り替え　完了（2026-07-06、Playwrightでモバイル幅375px/デスクトップ幅1280pxの表示を確認）
+- [ ] **E2Eテスト（Playwright）** — 主要フローをカバー　着手中
+  - [x] テスト基盤導入 — `frontend/playwright.config.ts`（Vite開発サーバー自動起動、baseURL `http://localhost:5173`）
+  - [x] 追加 → 一覧表示のフロー — `wish-item-flow.spec.ts`
+  - [x] レビュー「欲しい」→ステータス遷移（`Inbox` → `NextToBuy`）のフロー
+  - [x] カテゴリフィルターの絞り込みフロー
+  - [x] レビュー「やめておく」→ステータス遷移（`Inbox` → `Archived`）のフロー　完了（2026-07-10）
+  - [ ] `@playwright/test` の依存追加・`npm run test:e2e` スクリプト整備 — **要DevContainer側で `npm install` 実行**（ホスト側npm installはLinuxネイティブバイナリを壊すため厳禁。package.jsonの編集のみホスト側で行い、インストールはDevContainerで）
+  - [ ] 予算メーターのE2Eフロー（予算設定〜超過表示）は予算設定UIの実装後に追加
+- [ ] **Fly.ioデプロイ** — ステージング環境・自動デプロイ
+- [ ] **Sentry導入** — エラートラッキング（アプリ層とインフラ層でのエラー分類も意識）
+- [ ] **パフォーマンス計測** — Lighthouse・DBクエリ最適化
+- [ ] **セキュリティ確認** — CORS・SQLインジェクション・認証周りの確認
+- [ ] ✅ チェックポイント: 「新機能を追加するとき、どのレイヤーを触るか迷わないか？」
 
 ### 学習（並行）
 
