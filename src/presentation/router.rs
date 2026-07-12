@@ -80,6 +80,8 @@ pub fn create_router(pool: PgPool) -> Router {
         .route("/categories", get(categories::list_categories))
         // 予算状況 — 指定年月の予算と残高を返す（クエリパラメータ: ?year=&month=）
         .route("/budgets/status", get(budgets::get_budget_status))
+        // 予算設定 — 指定年月の予算を新規作成/更新する（更新時は残高を差分調整）
+        .route("/budgets", post(budgets::set_budget))
         // 欲しいものレビュー — 衝動買い防止チェック（still_want: true/false）
         .route("/wish-items/:id/review", post(wish_items::review_wish_item))
         // AppState を全ハンドラーに注入する（Axum の State extractor で取り出せるようになる）

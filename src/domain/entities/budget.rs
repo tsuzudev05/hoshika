@@ -85,6 +85,19 @@ impl Budget {
 
     // --- state transitions ---
 
+    /// 予算額を変更する。既に購入が記録され残高が変動している場合でも、
+    /// その分は失わないよう、残高は差分（新しい額 - 元の額）だけ調整する。
+    pub fn update_amount(&mut self, new_amount: Price) -> Vec<DomainEvent> {
+        let delta = new_amount.value() as i64 - self.amount.value() as i64;
+        self.balance = Balance::new(self.balance.value() + delta);
+        self.amount = new_amount.clone();
+        vec![DomainEvent::BudgetSet {
+            budget_id: self.id,
+            year_month: self.year_month,
+            amount: new_amount,
+        }]
+    }
+
     /// 購入を記録し、残高を減らす。超過した場合は BudgetExceeded イベントを追加する。
     pub fn record_purchase(&mut self, actual_price: Price) -> Vec<DomainEvent> {
         let prev_balance = self.balance;
@@ -149,6 +162,42 @@ mod tests {
         assert!(!events
             .iter()
             .any(|e| matches!(e, DomainEvent::BudgetExceeded { .. })));
+    }
+
+    #[test]
+    fn update_amount_increases_balance_by_delta() {
+        let mut b = make_budget(10000);
+        b.record_purchase(Price::new(3000).unwrap()); // balance = 7000
+        b.update_amount(Price::new(15000).unwrap()); // amount +5000
+        assert_eq!(b.amount().value(), 15000);
+        assert_eq!(b.balance().value(), 12000);
+    }
+
+    #[test]
+    fn update_amount_decreases_balance_by_delta() {
+        let mut b = make_budget(10000);
+        b.record_purchase(Price::new(3000).unwrap()); // balance = 7000
+        b.update_amount(Price::new(4000).unwrap()); // amount -6000
+        assert_eq!(b.amount().value(), 4000);
+        assert_eq!(b.balance().value(), 1000);
+    }
+
+    #[test]
+    fn update_amount_can_make_balance_exceeded() {
+        let mut b = make_budget(10000);
+        b.record_purchase(Price::new(9000).unwrap()); // balance = 1000
+        b.update_amount(Price::new(500).unwrap()); // amount -9500
+        assert!(b.balance().is_exceeded());
+        assert_eq!(b.balance().value(), -8500);
+    }
+
+    #[test]
+    fn update_amount_emits_budget_set_event() {
+        let mut b = make_budget(10000);
+        let events = b.update_amount(Price::new(20000).unwrap());
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, DomainEvent::BudgetSet { .. })));
     }
 
     #[test]

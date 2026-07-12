@@ -1,16 +1,15 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchBudgetStatus } from '../api/budgets'
 import { ApiError } from '../api/client'
+import { getCurrentYearMonth } from '../utils/date'
 import { toUserFacingError } from '../utils/errors'
+import { SetBudgetForm } from './SetBudgetForm'
 import './BudgetMeter.css'
-
-function getCurrentYearMonth(): { year: number; month: number } {
-  const now = new Date()
-  return { year: now.getFullYear(), month: now.getMonth() + 1 }
-}
 
 export function BudgetMeter() {
   const { year, month } = getCurrentYearMonth()
+  const [isEditing, setIsEditing] = useState(false)
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['budget-status', year, month],
     queryFn: () => fetchBudgetStatus(year, month),
@@ -28,9 +27,12 @@ export function BudgetMeter() {
   if (isError) {
     if (error instanceof ApiError && error.status === 404) {
       return (
-        <p className="budget-meter__empty">
-          {year}年{month}月の予算はまだ設定されていません
-        </p>
+        <div className="budget-meter">
+          <p className="budget-meter__empty">
+            {year}年{month}月の予算はまだ設定されていません
+          </p>
+          <SetBudgetForm year={year} month={month} />
+        </div>
       )
     }
     const { message, detail } = toUserFacingError(
@@ -85,6 +87,24 @@ export function BudgetMeter() {
           <dd>￥{data.balance.toLocaleString()}</dd>
         </div>
       </dl>
+
+      {isEditing ? (
+        <SetBudgetForm
+          year={year}
+          month={month}
+          initialAmount={data.amount}
+          onSuccess={() => setIsEditing(false)}
+          onCancel={() => setIsEditing(false)}
+        />
+      ) : (
+        <button
+          type="button"
+          className="budget-meter__edit-button"
+          onClick={() => setIsEditing(true)}
+        >
+          予算を編集
+        </button>
+      )}
     </div>
   )
 }

@@ -32,6 +32,12 @@ export interface BudgetStatus {
   is_exceeded: boolean
 }
 
+export interface SetBudgetInput {
+  year: number
+  month: number
+  amount: number
+}
+
 export interface Category {
   id: string
   name: string
