@@ -6,6 +6,8 @@ zenn-articles/
 *.pem
 frontend/node_modules/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
 .zed/
 .devcontainer/docker-compose.override.yml
 .vscode/

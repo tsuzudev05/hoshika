@@ -1,8 +1,8 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchCategories } from '../api/categories'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { addWishItem } from '../api/wishItems'
+import { useCategories } from '../hooks/useCategories'
 import { toUserFacingError } from '../utils/errors'
 import './AddWishItemForm.css'
 
@@ -14,10 +14,7 @@ export function AddWishItemForm() {
   const [memo, setMemo] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
-  const categoriesQuery = useQuery({
-    queryKey: ['categories'],
-    queryFn: fetchCategories,
-  })
+  const categoriesQuery = useCategories()
 
   const addMutation = useMutation({
     mutationFn: addWishItem,
