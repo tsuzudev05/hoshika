@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchCategories } from '../api/categories'
 import { fetchWishItems, reviewWishItem } from '../api/wishItems'
+import { useCategories } from '../hooks/useCategories'
 import { toUserFacingError } from '../utils/errors'
 import { CategoryFilter } from './CategoryFilter'
 import { WishItemCard } from './WishItemCard'
@@ -14,10 +14,7 @@ export function WishItemList() {
     queryKey: ['wish-items'],
     queryFn: fetchWishItems,
   })
-  const categoriesQuery = useQuery({
-    queryKey: ['categories'],
-    queryFn: fetchCategories,
-  })
+  const categoriesQuery = useCategories()
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, stillWant }: { id: string; stillWant: boolean }) =>
