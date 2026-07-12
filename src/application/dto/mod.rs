@@ -6,4 +6,6 @@ pub mod wish_item_dto;
 
 pub use budget_dto::{BudgetStatusOutput, SetBudgetInput};
 pub use category_dto::CategoryOutput;
-pub use wish_item_dto::{AddWishItemInput, ReviewWishItemInput, WishItemOutput};
+pub use wish_item_dto::{
+    AddWishItemInput, PurchaseWishItemInput, ReviewWishItemInput, WishItemOutput,
+};

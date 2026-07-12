@@ -80,6 +80,27 @@
   }
 }
 
+.wish-item-card__purchase-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.wish-item-card__purchase-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.wish-item-card__purchase-field input {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
 .wish-item-card__error {
   margin: 0.5rem 0 0;
   font-size: 0.85em;

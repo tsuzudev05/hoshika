@@ -22,6 +22,7 @@ use crate::infrastructure::{
     db::{
         postgres_budget_repository::PostgresBudgetRepository,
         postgres_category_repository::PostgresCategoryRepository,
+        postgres_purchase_record_repository::PostgresPurchaseRecordRepository,
         postgres_wish_item_repository::PostgresWishItemRepository,
     },
 };
@@ -61,7 +62,8 @@ pub fn create_router(pool: PgPool) -> Router {
     let state = AppState {
         wish_item_repo: Arc::new(PostgresWishItemRepository::new(pool.clone())),
         category_repo: Arc::new(PostgresCategoryRepository::new(pool.clone())),
-        budget_repo: Arc::new(PostgresBudgetRepository::new(pool)),
+        budget_repo: Arc::new(PostgresBudgetRepository::new(pool.clone())),
+        purchase_record_repo: Arc::new(PostgresPurchaseRecordRepository::new(pool)),
         auth_service,
     };
 
@@ -84,6 +86,11 @@ pub fn create_router(pool: PgPool) -> Router {
         .route("/budgets", post(budgets::set_budget))
         // 欲しいものレビュー — 衝動買い防止チェック（still_want: true/false）
         .route("/wish-items/:id/review", post(wish_items::review_wish_item))
+        // 購入記録 — NextToBuy → Purchased。当月の予算から実支払額を差し引く
+        .route(
+            "/wish-items/:id/purchase",
+            post(wish_items::purchase_wish_item),
+        )
         // AppState を全ハンドラーに注入する（Axum の State extractor で取り出せるようになる）
         .with_state(state)
 }

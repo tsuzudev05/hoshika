@@ -7,9 +7,10 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::application::{
-    dto::{AddWishItemInput, ReviewWishItemInput, WishItemOutput},
+    dto::{AddWishItemInput, PurchaseWishItemInput, ReviewWishItemInput, WishItemOutput},
     use_cases::{
         add_wish_item::{AddWishItemUseCase, UseCaseError},
+        purchase_wish_item::{PurchaseWishItemUseCase, UseCaseError as PurchaseError},
         review_wish_item::{ReviewError, ReviewWishItemUseCase},
     },
 };
@@ -80,6 +81,41 @@ pub async fn review_wish_item(
             Json(json!({"error": "wish item not found"})),
         ),
         Err(ReviewError::DomainError(msg)) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": msg})),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn purchase_wish_item(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<PurchaseWishItemInput>,
+) -> (StatusCode, Json<Value>) {
+    let use_case = PurchaseWishItemUseCase::new(
+        state.wish_item_repo,
+        state.budget_repo,
+        state.purchase_record_repo,
+    );
+    match use_case.execute(id, body.actual_price, body.memo).await {
+        Ok(()) => (StatusCode::OK, Json(json!({}))),
+        Err(PurchaseError::WishItemNotFound(_)) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "wish item not found"})),
+        ),
+        Err(PurchaseError::BudgetNotFound) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": "budget not set for the current month"})),
+        ),
+        Err(PurchaseError::InvalidPrice) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": "invalid price"})),
+        ),
+        Err(PurchaseError::DomainError(msg)) => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": msg})),
         ),
