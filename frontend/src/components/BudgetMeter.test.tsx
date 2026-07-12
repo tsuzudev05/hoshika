@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -83,5 +84,66 @@ describe('BudgetMeter', () => {
     renderWithQueryClient(<BudgetMeter />)
 
     expect(await screen.findByText('予算超過')).toBeInTheDocument()
+  })
+
+  it('予算未設定のとき、フォームから設定すると予算が表示される', async () => {
+    let created = false
+    server.use(
+      http.get('/api/budgets/status', () =>
+        created
+          ? HttpResponse.json(sampleBudget)
+          : HttpResponse.json({ error: 'not found' }, { status: 404 }),
+      ),
+      http.post('/api/budgets', () => {
+        created = true
+        return HttpResponse.json(sampleBudget)
+      }),
+    )
+
+    renderWithQueryClient(<BudgetMeter />)
+    const user = userEvent.setup()
+
+    await screen.findByText('2026年7月の予算はまだ設定されていません')
+    await user.type(screen.getByRole('spinbutton'), '50000')
+    await user.click(screen.getByRole('button', { name: '設定する' }))
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('2026年7月の予算')).toBeInTheDocument()
+      },
+      { timeout: 8000 },
+    )
+    expect(screen.getByText('￥50,000')).toBeInTheDocument()
+  })
+
+  it('予算設定済みのとき、「予算を編集」から更新できる', async () => {
+    let amount = 50000
+    server.use(
+      http.get('/api/budgets/status', () =>
+        HttpResponse.json({ ...sampleBudget, amount, balance: amount - 20000 }),
+      ),
+      http.post('/api/budgets', () => {
+        amount = 80000
+        return HttpResponse.json({ ...sampleBudget, amount, balance: amount - 20000 })
+      }),
+    )
+
+    renderWithQueryClient(<BudgetMeter />)
+    const user = userEvent.setup()
+
+    await screen.findByText('￥50,000')
+    await user.click(screen.getByRole('button', { name: '予算を編集' }))
+
+    const input = screen.getByRole('spinbutton')
+    await user.clear(input)
+    await user.type(input, '80000')
+    await user.click(screen.getByRole('button', { name: '更新する' }))
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('￥80,000')).toBeInTheDocument()
+      },
+      { timeout: 8000 },
+    )
   })
 })

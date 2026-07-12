@@ -1,0 +1,46 @@
+.set-budget-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.set-budget-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.set-budget-form__field input {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.set-budget-form__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.set-budget-form__actions button {
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .set-budget-form__actions {
+    flex-direction: row;
+  }
+
+  .set-budget-form__actions button {
+    width: auto;
+  }
+}
+
+.set-budget-form__error {
+  color: #b00020;
+  margin: 0;
+  font-size: 0.85em;
+}

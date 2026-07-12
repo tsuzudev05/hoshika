@@ -97,3 +97,14 @@
   color: #666;
   margin-bottom: 1rem;
 }
+
+.budget-meter__edit-button {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .budget-meter__edit-button {
+    width: auto;
+  }
+}
