@@ -11,7 +11,19 @@ export default function globalTeardown() {
     return
   }
 
-  execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-c', "DELETE FROM wish_items WHERE name LIKE 'E2E%';"], {
+  // 認証情報をコマンドライン引数に渡すと `ps` 等から他プロセスに見えてしまうため、
+  // 接続情報はPG*環境変数経由でpsqlに渡す（引数にはURLを含めない）。
+  const url = new URL(databaseUrl)
+
+  execFileSync('psql', ['-v', 'ON_ERROR_STOP=1', '-c', "DELETE FROM wish_items WHERE name LIKE 'E2E%';"], {
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      PGHOST: url.hostname,
+      PGPORT: url.port || '5432',
+      PGUSER: decodeURIComponent(url.username),
+      PGPASSWORD: decodeURIComponent(url.password),
+      PGDATABASE: url.pathname.replace(/^\//, ''),
+    },
   })
 }

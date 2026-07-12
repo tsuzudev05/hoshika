@@ -20,6 +20,7 @@
   - [x] `@playwright/test` の依存追加・`npm run test:e2e` スクリプト整備 — DevContainer内で `npm install` を実行し `package-lock.json` を同期。手順を[DEVELOPMENT.md](./DEVELOPMENT.md#フロントエンドのe2eテストplaywright)に明記　完了（2026-07-10）
   - [x] テストデータのクリーンアップ — `addWishItem`ヘルパーが追加完了を待たずに次の入力を始めていた競合バグを修正。また削除APIがまだ無いため、`e2e/global-teardown.ts` で`DATABASE_URL`に直接接続し`name LIKE 'E2E%'`の行をテスト終了後に削除するようにした　完了（2026-07-10）
   - [ ] 予算メーターのE2Eフロー（予算設定〜超過表示）は下記「予算設定UI」の実装後に追加
+  - [ ] CI（`.github/workflows/frontend.yml`）への組み込み — 現状`type-check`/`lint`/`test`/`build`のみでE2Eは含まれていない。Postgresサービスコンテナと`cargo run`起動をワークフローに追加する必要があり、未着手
 - [ ] **予算設定UI** — 月次予算を登録・更新できるフォームをフロントエンドに追加。バックエンドに`POST /budgets`相当のエンドポイントがまだ無いため、そちらも合わせて実装が必要。上記「予算メーターのE2Eフロー」はこのタスクの完了に依存
 - [ ] **Fly.ioデプロイ** — ステージング環境・自動デプロイ
 - [ ] **Sentry導入** — エラートラッキング（アプリ層とインフラ層でのエラー分類も意識）
