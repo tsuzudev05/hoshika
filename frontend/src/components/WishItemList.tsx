@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchWishItems, reviewWishItem } from '../api/wishItems'
+import { fetchWishItems, purchaseWishItem, reviewWishItem } from '../api/wishItems'
 import { useCategories } from '../hooks/useCategories'
 import { toUserFacingError } from '../utils/errors'
 import { CategoryFilter } from './CategoryFilter'
@@ -21,6 +21,15 @@ export function WishItemList() {
       reviewWishItem(id, { still_want: stillWant }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wish-items'] })
+    },
+  })
+
+  const purchaseMutation = useMutation({
+    mutationFn: ({ id, actualPrice, memo }: { id: string; actualPrice: number; memo?: string }) =>
+      purchaseWishItem(id, { actual_price: actualPrice, memo }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wish-items'] })
+      queryClient.invalidateQueries({ queryKey: ['budget-status'] })
     },
   })
 
@@ -84,6 +93,15 @@ export function WishItemList() {
                   : undefined
               }
               onReview={(stillWant) => reviewMutation.mutate({ id: item.id, stillWant })}
+              isPurchasing={purchaseMutation.isPending && purchaseMutation.variables?.id === item.id}
+              purchaseError={
+                purchaseMutation.isError && purchaseMutation.variables?.id === item.id
+                  ? toUserFacingError(purchaseMutation.error, '購入の記録に失敗しました。もう一度お試しください。')
+                  : undefined
+              }
+              onPurchase={(actualPrice, memo) =>
+                purchaseMutation.mutate({ id: item.id, actualPrice, memo })
+              }
             />
           ))}
         </ul>

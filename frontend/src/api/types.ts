@@ -23,6 +23,11 @@ export interface ReviewWishItemInput {
   still_want: boolean
 }
 
+export interface PurchaseWishItemInput {
+  actual_price: number
+  memo?: string | null
+}
+
 export interface BudgetStatus {
   id: string
   year: number

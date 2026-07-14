@@ -16,6 +16,12 @@ pub struct ReviewWishItemInput {
     pub still_want: bool,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PurchaseWishItemInput {
+    pub actual_price: u64,
+    pub memo: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct WishItemOutput {
     pub id: Uuid,

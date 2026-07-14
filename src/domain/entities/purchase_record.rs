@@ -29,6 +29,25 @@ impl PurchaseRecord {
         }
     }
 
+    /// DBからの再構築。Infrastructure 層のリポジトリからのみ呼ばれる。
+    pub fn reconstitute(
+        id: Uuid,
+        budget_id: Uuid,
+        wish_item_id: Uuid,
+        actual_price: Price,
+        memo: Memo,
+        purchased_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            budget_id,
+            wish_item_id,
+            actual_price,
+            memo,
+            purchased_at,
+        }
+    }
+
     // --- getters ---
 
     pub fn id(&self) -> Uuid {
