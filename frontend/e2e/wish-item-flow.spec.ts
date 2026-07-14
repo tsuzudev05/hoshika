@@ -85,3 +85,50 @@ test.describe('欲しいものリスト', () => {
     await expect(page.getByText(gadgetItem)).toBeVisible()
   })
 })
+
+// 予算は年月ごとに1件しか存在しないシングルトンで、wish_itemsと違い`E2E`接頭辞で
+// 隔離できない。このテストは当月の予算金額を上書きし、購入によって残高を減らす
+// ため、DevContainerの開発用DBの当月予算・残高を恒久的に変更する（後片付け手段は
+// まだ無い）。動作確認済みのdevデータへの影響を許容できる環境でのみ実行すること。
+test.describe('予算メーター', () => {
+  test('予算を設定し、購入で予算を超過するとバッジが表示される', async ({ page }) => {
+    const budgetAmount = 1000
+
+    await page.goto('/')
+    await page.waitForSelector('.budget-meter__empty, .budget-meter__edit-button')
+
+    const isUnset = (await page.locator('.budget-meter__empty').count()) > 0
+    const budgetMeter = page.locator('.budget-meter')
+    // 予算と残高は購入前だと同額になり得るため、`dt`(見出し)ではなく
+    // `.budget-meter__details dd` の並び順（0番目=予算, 1番目=残高）で個別に特定する。
+    const details = budgetMeter.locator('.budget-meter__details dd')
+
+    if (isUnset) {
+      await budgetMeter.getByRole('spinbutton').fill(String(budgetAmount))
+      await budgetMeter.getByRole('button', { name: '設定する' }).click()
+    } else {
+      await budgetMeter.getByRole('button', { name: '予算を編集' }).click()
+      await budgetMeter.getByRole('spinbutton').fill(String(budgetAmount))
+      await budgetMeter.getByRole('button', { name: '更新する' }).click()
+    }
+
+    await expect(details.nth(0)).toHaveText(`￥${budgetAmount.toLocaleString()}`)
+    await expect(budgetMeter.getByText('予算超過')).not.toBeVisible()
+
+    const itemName = `E2E予算超過商品-${Date.now()}`
+    const overBudgetPrice = budgetAmount + 5000
+    await addWishItem(page, { name: itemName, price: String(overBudgetPrice), category: '書籍' })
+
+    const card = page.locator('li.wish-item-card', { hasText: itemName })
+    await card.getByRole('button', { name: '欲しい' }).click()
+    await expect(card.getByText('次に買う')).toBeVisible()
+
+    await card.getByRole('button', { name: '購入済みにする' }).click()
+    await card.getByRole('button', { name: '購入済みにする' }).click()
+
+    await expect(card.getByText('購入済み')).toBeVisible()
+    await expect(budgetMeter.getByText('予算超過')).toBeVisible()
+    const expectedBalance = (budgetAmount - overBudgetPrice).toLocaleString()
+    await expect(budgetMeter.getByText(`￥${expectedBalance}`)).toBeVisible()
+  })
+})

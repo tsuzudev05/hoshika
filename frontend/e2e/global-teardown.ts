@@ -15,15 +15,29 @@ export default function globalTeardown() {
   // 接続情報はPG*環境変数経由でpsqlに渡す（引数にはURLを含めない）。
   const url = new URL(databaseUrl)
 
+  const env = {
+    ...process.env,
+    PGHOST: url.hostname,
+    PGPORT: url.port || '5432',
+    PGUSER: decodeURIComponent(url.username),
+    PGPASSWORD: decodeURIComponent(url.password),
+    PGDATABASE: url.pathname.replace(/^\//, ''),
+  }
+
+  // purchase_recordsがwish_itemsを外部キー参照しているため、先に子テーブルを削除する。
+  execFileSync(
+    'psql',
+    [
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      "DELETE FROM purchase_records WHERE wish_item_id IN (SELECT id FROM wish_items WHERE name LIKE 'E2E%');",
+    ],
+    { stdio: 'inherit', env },
+  )
+
   execFileSync('psql', ['-v', 'ON_ERROR_STOP=1', '-c', "DELETE FROM wish_items WHERE name LIKE 'E2E%';"], {
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      PGHOST: url.hostname,
-      PGPORT: url.port || '5432',
-      PGUSER: decodeURIComponent(url.username),
-      PGPASSWORD: decodeURIComponent(url.password),
-      PGDATABASE: url.pathname.replace(/^\//, ''),
-    },
+    env,
   })
 }

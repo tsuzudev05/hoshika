@@ -19,7 +19,10 @@
   - [x] レビュー「やめておく」→ステータス遷移（`Inbox` → `Archived`）のフロー　完了（2026-07-10）
   - [x] `@playwright/test` の依存追加・`npm run test:e2e` スクリプト整備 — DevContainer内で `npm install` を実行し `package-lock.json` を同期。手順を[DEVELOPMENT.md](./DEVELOPMENT.md#フロントエンドのe2eテストplaywright)に明記　完了（2026-07-10）
   - [x] テストデータのクリーンアップ — `addWishItem`ヘルパーが追加完了を待たずに次の入力を始めていた競合バグを修正。また削除APIがまだ無いため、`e2e/global-teardown.ts` で`DATABASE_URL`に直接接続し`name LIKE 'E2E%'`の行をテスト終了後に削除するようにした　完了（2026-07-10）
-  - [ ] 予算メーターのE2Eフロー（予算設定〜超過表示）— バックエンド/フロントエンドとも実装済みのため着手可能　未着手
+  - [x] 予算メーターのE2Eフロー（予算設定〜超過表示）— `予算メーター`の`describe`ブロックを追加。予算未設定/設定済みの両パターンで金額を設定し、予算超過商品を購入して「予算超過」バッジと残高表示を確認する
+    - 予算は年月ごとに1件のシングルトンで`E2E`接頭辞による隔離ができないため、DevContainerの開発用DBの当月予算・残高を恒久的に書き換える（後片付け手段は未実装、テストコード内にコメントで明記）
+    - `global-teardown.ts`が`purchase_records`を残したまま`wish_items`を削除しようとして外部キー制約違反で失敗するバグを発見・修正（`purchase_records`を先に削除してから`wish_items`を削除するよう変更）
+    - DevContainer内（`cargo run`でバックエンド起動 + `npx playwright install-deps chromium`でOS依存関係導入）で全5シナリオが通過することを確認　完了（2026-07-14）
   - [ ] CI（`.github/workflows/frontend.yml`）への組み込み — 現状`type-check`/`lint`/`test`/`build`のみでE2Eは含まれていない。Postgresサービスコンテナと`cargo run`起動をワークフローに追加する必要があり、未着手
 - [x] **予算設定UI** — 月次予算を登録・更新できるフォームを追加
   - バックエンド: `POST /budgets`（`SetBudgetUseCase` / `budgets::set_budget` ハンドラー）を新規実装。年月の予算が未設定なら新規作成、既存なら金額を更新する（`Budget::update_amount` で残高を差分調整し、既に記録された購入の影響を失わないようにした）
