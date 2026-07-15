@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { querySql, runSql } from './db'
 
 async function addWishItem(
   page: Page,
@@ -87,10 +88,30 @@ test.describe('欲しいものリスト', () => {
 })
 
 // 予算は年月ごとに1件しか存在しないシングルトンで、wish_itemsと違い`E2E`接頭辞で
-// 隔離できない。このテストは当月の予算金額を上書きし、購入によって残高を減らす
-// ため、DevContainerの開発用DBの当月予算・残高を恒久的に変更する（後片付け手段は
-// まだ無い）。動作確認済みのdevデータへの影響を許容できる環境でのみ実行すること。
+// 隔離できない。このテストは当月の予算金額を上書きし、購入によって残高を減らす。
+// 実行前の当月予算行をbeforeAllで退避し、afterAllで元の状態（未設定だった場合は
+// 行ごと削除）に復元することで、DevContainerの開発用DBへの影響を残さないようにする。
 test.describe('予算メーター', () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  let originalBudget: { amount: string; balance: string } | null
+
+  test.beforeAll(() => {
+    const rows = querySql(`SELECT amount, balance FROM budgets WHERE year = ${year} AND month = ${month};`)
+    originalBudget = rows.length > 0 ? { amount: rows[0][0], balance: rows[0][1] } : null
+  })
+
+  test.afterAll(() => {
+    if (originalBudget) {
+      runSql(
+        `UPDATE budgets SET amount = ${originalBudget.amount}, balance = ${originalBudget.balance} WHERE year = ${year} AND month = ${month};`,
+      )
+    } else {
+      runSql(`DELETE FROM budgets WHERE year = ${year} AND month = ${month};`)
+    }
+  })
+
   test('予算を設定し、購入で予算を超過するとバッジが表示される', async ({ page }) => {
     const budgetAmount = 1000
 
