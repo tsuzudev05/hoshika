@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { querySql, runSql } from './db'
 
 async function addWishItem(
   page: Page,
@@ -83,5 +84,72 @@ test.describe('欲しいものリスト', () => {
 
     await filter.getByRole('button', { name: 'すべて' }).click()
     await expect(page.getByText(gadgetItem)).toBeVisible()
+  })
+})
+
+// 予算は年月ごとに1件しか存在しないシングルトンで、wish_itemsと違い`E2E`接頭辞で
+// 隔離できない。このテストは当月の予算金額を上書きし、購入によって残高を減らす。
+// 実行前の当月予算行をbeforeAllで退避し、afterAllで元の状態（未設定だった場合は
+// 行ごと削除）に復元することで、DevContainerの開発用DBへの影響を残さないようにする。
+test.describe('予算メーター', () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  let originalBudget: { amount: string; balance: string } | null
+
+  test.beforeAll(() => {
+    const rows = querySql(`SELECT amount, balance FROM budgets WHERE year = ${year} AND month = ${month};`)
+    originalBudget = rows.length > 0 ? { amount: rows[0][0], balance: rows[0][1] } : null
+  })
+
+  test.afterAll(() => {
+    if (originalBudget) {
+      runSql(
+        `UPDATE budgets SET amount = ${originalBudget.amount}, balance = ${originalBudget.balance} WHERE year = ${year} AND month = ${month};`,
+      )
+    } else {
+      runSql(`DELETE FROM budgets WHERE year = ${year} AND month = ${month};`)
+    }
+  })
+
+  test('予算を設定し、購入で予算を超過するとバッジが表示される', async ({ page }) => {
+    const budgetAmount = 1000
+
+    await page.goto('/')
+    await page.waitForSelector('.budget-meter__empty, .budget-meter__edit-button')
+
+    const isUnset = (await page.locator('.budget-meter__empty').count()) > 0
+    const budgetMeter = page.locator('.budget-meter')
+    // 予算と残高は購入前だと同額になり得るため、`dt`(見出し)ではなく
+    // `.budget-meter__details dd` の並び順（0番目=予算, 1番目=残高）で個別に特定する。
+    const details = budgetMeter.locator('.budget-meter__details dd')
+
+    if (isUnset) {
+      await budgetMeter.getByRole('spinbutton').fill(String(budgetAmount))
+      await budgetMeter.getByRole('button', { name: '設定する' }).click()
+    } else {
+      await budgetMeter.getByRole('button', { name: '予算を編集' }).click()
+      await budgetMeter.getByRole('spinbutton').fill(String(budgetAmount))
+      await budgetMeter.getByRole('button', { name: '更新する' }).click()
+    }
+
+    await expect(details.nth(0)).toHaveText(`￥${budgetAmount.toLocaleString()}`)
+    await expect(budgetMeter.getByText('予算超過')).not.toBeVisible()
+
+    const itemName = `E2E予算超過商品-${Date.now()}`
+    const overBudgetPrice = budgetAmount + 5000
+    await addWishItem(page, { name: itemName, price: String(overBudgetPrice), category: '書籍' })
+
+    const card = page.locator('li.wish-item-card', { hasText: itemName })
+    await card.getByRole('button', { name: '欲しい' }).click()
+    await expect(card.getByText('次に買う')).toBeVisible()
+
+    await card.getByRole('button', { name: '購入済みにする' }).click()
+    await card.getByRole('button', { name: '購入済みにする' }).click()
+
+    await expect(card.getByText('購入済み')).toBeVisible()
+    await expect(budgetMeter.getByText('予算超過')).toBeVisible()
+    const expectedBalance = (budgetAmount - overBudgetPrice).toLocaleString()
+    await expect(budgetMeter.getByText(`￥${expectedBalance}`)).toBeVisible()
   })
 })
