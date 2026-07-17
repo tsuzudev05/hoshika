@@ -11,3 +11,4 @@ frontend/playwright-report/
 .zed/
 .devcontainer/docker-compose.override.yml
 .vscode/
+/backend.log

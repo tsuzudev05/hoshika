@@ -61,3 +61,101 @@ jobs:
           echo "| lint       | ${{ steps.lint.outcome      == 'success' && '✅ passed' || steps.lint.outcome      == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| test       | ${{ steps.test.outcome      == 'success' && '✅ passed' || steps.test.outcome      == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| build      | ${{ steps.build.outcome     == 'success' && '✅ passed' || steps.build.outcome     == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hoshika
+          POSTGRES_PASSWORD: hoshika
+          POSTGRES_DB: hoshika
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hoshika -d hoshika"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://hoshika:hoshika@localhost:5432/hoshika
+      JWT_SECRET: ci-e2e-test-secret-do-not-use-in-production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build backend
+        working-directory: .
+        run: cargo build --locked
+
+      - name: Start backend
+        working-directory: .
+        run: |
+          ./target/debug/hoshika > backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "backend did not become ready in time" >&2
+          cat backend.log
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        id: e2e
+        run: npm run test:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: frontend/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Show backend logs
+        if: failure()
+        working-directory: .
+        run: cat backend.log
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## E2E (Playwright) Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| e2e   | ${{ steps.e2e.outcome == 'success' && '✅ passed' || steps.e2e.outcome == 'skipped' && '⏭ skipped' || '❌ failed' }} |" >> $GITHUB_STEP_SUMMARY
