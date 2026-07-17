@@ -83,6 +83,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://hoshika:hoshika@localhost:5432/hoshika
+      JWT_SECRET: ci-e2e-test-secret-do-not-use-in-production
 
     steps:
       - uses: actions/checkout@v4
