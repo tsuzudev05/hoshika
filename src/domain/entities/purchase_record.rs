@@ -10,6 +10,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct PurchaseRecord {
     id: Uuid,
+    user_id: String,
     budget_id: Uuid,
     wish_item_id: Uuid,
     actual_price: Price,
@@ -18,9 +19,16 @@ pub struct PurchaseRecord {
 }
 
 impl PurchaseRecord {
-    pub fn new(budget_id: Uuid, wish_item_id: Uuid, actual_price: Price, memo: Memo) -> Self {
+    pub fn new(
+        user_id: String,
+        budget_id: Uuid,
+        wish_item_id: Uuid,
+        actual_price: Price,
+        memo: Memo,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
+            user_id,
             budget_id,
             wish_item_id,
             actual_price,
@@ -30,8 +38,10 @@ impl PurchaseRecord {
     }
 
     /// DBからの再構築。Infrastructure 層のリポジトリからのみ呼ばれる。
+    #[allow(clippy::too_many_arguments)]
     pub fn reconstitute(
         id: Uuid,
+        user_id: String,
         budget_id: Uuid,
         wish_item_id: Uuid,
         actual_price: Price,
@@ -40,6 +50,7 @@ impl PurchaseRecord {
     ) -> Self {
         Self {
             id,
+            user_id,
             budget_id,
             wish_item_id,
             actual_price,
@@ -52,6 +63,10 @@ impl PurchaseRecord {
 
     pub fn id(&self) -> Uuid {
         self.id
+    }
+
+    pub fn user_id(&self) -> &str {
+        &self.user_id
     }
 
     pub fn budget_id(&self) -> Uuid {
@@ -91,12 +106,14 @@ mod tests {
     #[test]
     fn new_record_has_unique_id() {
         let r1 = PurchaseRecord::new(
+            "test-user".to_string(),
             Uuid::new_v4(),
             Uuid::new_v4(),
             Price::new(1000).unwrap(),
             Memo::new(""),
         );
         let r2 = PurchaseRecord::new(
+            "test-user".to_string(),
             Uuid::new_v4(),
             Uuid::new_v4(),
             Price::new(1000).unwrap(),

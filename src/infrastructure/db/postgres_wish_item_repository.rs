@@ -24,6 +24,7 @@ impl PostgresWishItemRepository {
 const SELECT_WISH_ITEMS: &str = r#"
     SELECT
         wi.id,
+        wi.user_id,
         wi.name,
         wi.price,
         wi.status::TEXT AS status,
@@ -38,9 +39,14 @@ const SELECT_WISH_ITEMS: &str = r#"
 
 #[async_trait]
 impl WishItemRepository for PostgresWishItemRepository {
-    async fn find_by_id(&self, id: Uuid) -> Result<Option<WishItem>, RepositoryError> {
-        let sql = format!("{SELECT_WISH_ITEMS} WHERE wi.id = $1");
+    async fn find_by_id(
+        &self,
+        user_id: &str,
+        id: Uuid,
+    ) -> Result<Option<WishItem>, RepositoryError> {
+        let sql = format!("{SELECT_WISH_ITEMS} WHERE wi.user_id = $1 AND wi.id = $2");
         let row = sqlx::query(&sql)
+            .bind(user_id)
             .bind(id)
             .fetch_optional(&*self.pool)
             .await
@@ -49,9 +55,10 @@ impl WishItemRepository for PostgresWishItemRepository {
         row.map(|r| row_to_wish_item(&r)).transpose()
     }
 
-    async fn find_all(&self) -> Result<Vec<WishItem>, RepositoryError> {
-        let sql = format!("{SELECT_WISH_ITEMS} ORDER BY wi.added_at ASC");
+    async fn find_all(&self, user_id: &str) -> Result<Vec<WishItem>, RepositoryError> {
+        let sql = format!("{SELECT_WISH_ITEMS} WHERE wi.user_id = $1 ORDER BY wi.added_at ASC");
         let rows = sqlx::query(&sql)
+            .bind(user_id)
             .fetch_all(&*self.pool)
             .await
             .map_err(to_repo_err)?;
@@ -62,8 +69,8 @@ impl WishItemRepository for PostgresWishItemRepository {
     async fn save(&self, item: &WishItem) -> Result<(), RepositoryError> {
         sqlx::query(
             r#"
-            INSERT INTO wish_items (id, name, price, category_id, status, memo, added_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5::wish_item_status, $6, $7, $8)
+            INSERT INTO wish_items (id, user_id, name, price, category_id, status, memo, added_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6::wish_item_status, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET
                 name        = EXCLUDED.name,
                 price       = EXCLUDED.price,
@@ -73,6 +80,7 @@ impl WishItemRepository for PostgresWishItemRepository {
             "#,
         )
         .bind(item.id())
+        .bind(item.user_id())
         .bind(item.name())
         .bind(item.price().value() as i64)
         .bind(item.category().id)
@@ -86,8 +94,9 @@ impl WishItemRepository for PostgresWishItemRepository {
         Ok(())
     }
 
-    async fn delete(&self, id: Uuid) -> Result<(), RepositoryError> {
-        let result = sqlx::query("DELETE FROM wish_items WHERE id = $1")
+    async fn delete(&self, user_id: &str, id: Uuid) -> Result<(), RepositoryError> {
+        let result = sqlx::query("DELETE FROM wish_items WHERE user_id = $1 AND id = $2")
+            .bind(user_id)
             .bind(id)
             .execute(&*self.pool)
             .await

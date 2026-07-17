@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     Json,
 };
@@ -15,6 +15,7 @@ use crate::application::{
     },
 };
 use crate::domain::entities::wish_item::WishItem;
+use crate::infrastructure::auth::JwtClaims;
 use crate::presentation::state::AppState;
 
 fn wish_item_to_output(item: &WishItem) -> WishItemOutput {
@@ -29,8 +30,11 @@ fn wish_item_to_output(item: &WishItem) -> WishItemOutput {
     }
 }
 
-pub async fn list_wish_items(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
-    match state.wish_item_repo.find_all().await {
+pub async fn list_wish_items(
+    State(state): State<AppState>,
+    Extension(claims): Extension<JwtClaims>,
+) -> (StatusCode, Json<Value>) {
+    match state.wish_item_repo.find_all(&claims.sub).await {
         Ok(items) => {
             let outputs: Vec<WishItemOutput> = items.iter().map(wish_item_to_output).collect();
             (StatusCode::OK, Json(json!(outputs)))
@@ -44,10 +48,11 @@ pub async fn list_wish_items(State(state): State<AppState>) -> (StatusCode, Json
 
 pub async fn add_wish_item(
     State(state): State<AppState>,
+    Extension(claims): Extension<JwtClaims>,
     Json(body): Json<AddWishItemInput>,
 ) -> (StatusCode, Json<Value>) {
     let use_case = AddWishItemUseCase::new(state.wish_item_repo, state.category_repo);
-    match use_case.execute(body).await {
+    match use_case.execute(&claims.sub, body).await {
         Ok(output) => (StatusCode::CREATED, Json(json!(output))),
         Err(UseCaseError::CategoryNotFound(id)) => (
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -70,11 +75,12 @@ pub async fn add_wish_item(
 
 pub async fn review_wish_item(
     State(state): State<AppState>,
+    Extension(claims): Extension<JwtClaims>,
     Path(id): Path<Uuid>,
     Json(body): Json<ReviewWishItemInput>,
 ) -> (StatusCode, Json<Value>) {
     let use_case = ReviewWishItemUseCase::new(state.wish_item_repo);
-    match use_case.execute(id, body.still_want).await {
+    match use_case.execute(&claims.sub, id, body.still_want).await {
         Ok(()) => (StatusCode::OK, Json(json!({}))),
         Err(ReviewError::NotFound(_)) => (
             StatusCode::NOT_FOUND,
@@ -93,6 +99,7 @@ pub async fn review_wish_item(
 
 pub async fn purchase_wish_item(
     State(state): State<AppState>,
+    Extension(claims): Extension<JwtClaims>,
     Path(id): Path<Uuid>,
     Json(body): Json<PurchaseWishItemInput>,
 ) -> (StatusCode, Json<Value>) {
@@ -101,7 +108,10 @@ pub async fn purchase_wish_item(
         state.budget_repo,
         state.purchase_record_repo,
     );
-    match use_case.execute(id, body.actual_price, body.memo).await {
+    match use_case
+        .execute(&claims.sub, id, body.actual_price, body.memo)
+        .await
+    {
         Ok(()) => (StatusCode::OK, Json(json!({}))),
         Err(PurchaseError::WishItemNotFound(_)) => (
             StatusCode::NOT_FOUND,

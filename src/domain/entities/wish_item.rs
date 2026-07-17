@@ -14,6 +14,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct WishItem {
     id: Uuid,
+    user_id: String,
     name: WishItemName,
     price: Price,
     category: Category,
@@ -29,6 +30,7 @@ impl WishItem {
     #[allow(clippy::too_many_arguments)]
     pub fn reconstitute(
         id: Uuid,
+        user_id: String,
         name: WishItemName,
         price: Price,
         category: Category,
@@ -39,6 +41,7 @@ impl WishItem {
     ) -> Self {
         Self {
             id,
+            user_id,
             name,
             price,
             category,
@@ -52,6 +55,7 @@ impl WishItem {
     /// 新規 WishItem を作成する。作成時のステータスは必ず `Inbox`。
     /// name のバリデーション（空文字列不可）は WishItemName::new() が担う。
     pub fn new(
+        user_id: String,
         name: WishItemName,
         price: Price,
         category: Category,
@@ -60,6 +64,7 @@ impl WishItem {
         let now = Utc::now();
         let item = Self {
             id: Uuid::new_v4(),
+            user_id,
             name,
             price,
             category,
@@ -78,6 +83,10 @@ impl WishItem {
 
     pub fn id(&self) -> Uuid {
         self.id
+    }
+
+    pub fn user_id(&self) -> &str {
+        &self.user_id
     }
 
     pub fn name(&self) -> &str {
@@ -212,6 +221,7 @@ mod tests {
             name: "書籍".to_string(),
         };
         let (item, _) = WishItem::new(
+            "test-user".to_string(),
             WishItemName::new("テスト本").unwrap(),
             Price::new(2000).unwrap(),
             category,

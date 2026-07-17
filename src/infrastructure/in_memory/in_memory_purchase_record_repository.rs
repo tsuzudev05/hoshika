@@ -38,8 +38,16 @@ impl InMemoryPurchaseRecordRepository {
 
 #[async_trait]
 impl PurchaseRecordRepository for InMemoryPurchaseRecordRepository {
-    async fn find_by_id(&self, id: Uuid) -> Result<Option<PurchaseRecord>, RepositoryError> {
-        Ok(self.store.find_by_id(id).await)
+    async fn find_by_id(
+        &self,
+        user_id: &str,
+        id: Uuid,
+    ) -> Result<Option<PurchaseRecord>, RepositoryError> {
+        Ok(self
+            .store
+            .find_by_id(id)
+            .await
+            .filter(|r| r.user_id() == user_id))
     }
 
     async fn save(&self, record: &PurchaseRecord) -> Result<(), RepositoryError> {
@@ -53,13 +61,21 @@ mod tests {
     use super::*;
     use crate::domain::value_objects::{Memo, Price};
 
-    fn make_record() -> PurchaseRecord {
+    const USER: &str = "user-1";
+    const OTHER_USER: &str = "user-2";
+
+    fn make_record_for(user_id: &str) -> PurchaseRecord {
         PurchaseRecord::new(
+            user_id.to_string(),
             Uuid::new_v4(),
             Uuid::new_v4(),
             Price::new(1000).unwrap(),
             Memo::new(""),
         )
+    }
+
+    fn make_record() -> PurchaseRecord {
+        make_record_for(USER)
     }
 
     #[tokio::test]
@@ -69,7 +85,7 @@ mod tests {
         let id = record.id();
         repo.save(&record).await.unwrap();
 
-        let found = repo.find_by_id(id).await.unwrap();
+        let found = repo.find_by_id(USER, id).await.unwrap();
         assert!(found.is_some());
         assert_eq!(found.unwrap().id(), id);
     }
@@ -77,7 +93,18 @@ mod tests {
     #[tokio::test]
     async fn find_by_id_returns_none_when_missing() {
         let repo = InMemoryPurchaseRecordRepository::new();
-        let result = repo.find_by_id(Uuid::new_v4()).await.unwrap();
+        let result = repo.find_by_id(USER, Uuid::new_v4()).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn find_by_id_returns_none_for_other_users_record() {
+        let repo = InMemoryPurchaseRecordRepository::new();
+        let record = make_record_for(OTHER_USER);
+        let id = record.id();
+        repo.save(&record).await.unwrap();
+
+        let result = repo.find_by_id(USER, id).await.unwrap();
         assert!(result.is_none());
     }
 
@@ -87,7 +114,7 @@ mod tests {
         let id = record.id();
         let repo = InMemoryPurchaseRecordRepository::with_records(vec![record]);
 
-        let found = repo.find_by_id(id).await.unwrap();
+        let found = repo.find_by_id(USER, id).await.unwrap();
         assert!(found.is_some());
     }
 }

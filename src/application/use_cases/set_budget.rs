@@ -17,7 +17,11 @@ impl SetBudgetUseCase {
         Self { budget_repo }
     }
 
-    pub async fn execute(&self, input: SetBudgetInput) -> Result<BudgetStatusOutput, UseCaseError> {
+    pub async fn execute(
+        &self,
+        user_id: &str,
+        input: SetBudgetInput,
+    ) -> Result<BudgetStatusOutput, UseCaseError> {
         let year_month = YearMonth::new(input.year, input.month)
             .map_err(|e| UseCaseError::DomainError(e.to_string()))?;
         if input.amount == 0 {
@@ -25,7 +29,10 @@ impl SetBudgetUseCase {
         }
         let amount = Price::new(input.amount).map_err(|_| UseCaseError::InvalidAmount)?;
 
-        let existing = self.budget_repo.find_by_year_month(year_month).await?;
+        let existing = self
+            .budget_repo
+            .find_by_year_month(user_id, year_month)
+            .await?;
 
         let budget = match existing {
             Some(mut budget) => {
@@ -33,7 +40,7 @@ impl SetBudgetUseCase {
                 budget
             }
             None => {
-                let (budget, _events) = Budget::new(year_month, amount);
+                let (budget, _events) = Budget::new(user_id.to_string(), year_month, amount);
                 budget
             }
         };
@@ -70,6 +77,8 @@ mod tests {
     use crate::domain::value_objects::{Price, YearMonth};
     use crate::infrastructure::in_memory::InMemoryBudgetRepository;
 
+    const USER: &str = "user-1";
+
     fn make_input(year: u16, month: u8, amount: u64) -> SetBudgetInput {
         SetBudgetInput {
             year,
@@ -85,7 +94,10 @@ mod tests {
         let repo = Arc::new(InMemoryBudgetRepository::new());
         let use_case = SetBudgetUseCase::new(repo.clone());
 
-        let output = use_case.execute(make_input(2026, 7, 50000)).await.unwrap();
+        let output = use_case
+            .execute(USER, make_input(2026, 7, 50000))
+            .await
+            .unwrap();
 
         assert_eq!(output.year, 2026);
         assert_eq!(output.month, 7);
@@ -93,19 +105,22 @@ mod tests {
         assert_eq!(output.balance, 50000);
         assert!(!output.is_exceeded);
 
-        let saved = repo.find_by_id(output.id).await.unwrap();
+        let saved = repo.find_by_id(USER, output.id).await.unwrap();
         assert!(saved.is_some());
     }
 
     #[tokio::test]
     async fn execute_updates_amount_and_adjusts_balance_when_budget_exists() {
         let ym = YearMonth::new(2026, 7).unwrap();
-        let (mut budget, _) = Budget::new(ym, Price::new(50000).unwrap());
+        let (mut budget, _) = Budget::new(USER.to_string(), ym, Price::new(50000).unwrap());
         budget.record_purchase(Price::new(20000).unwrap()); // balance = 30000
         let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
         let use_case = SetBudgetUseCase::new(repo.clone());
 
-        let output = use_case.execute(make_input(2026, 7, 60000)).await.unwrap();
+        let output = use_case
+            .execute(USER, make_input(2026, 7, 60000))
+            .await
+            .unwrap();
 
         assert_eq!(output.amount, 60000);
         assert_eq!(output.balance, 40000); // 30000 + (60000 - 50000)
@@ -114,14 +129,34 @@ mod tests {
     #[tokio::test]
     async fn execute_keeps_same_budget_id_when_updating() {
         let ym = YearMonth::new(2026, 7).unwrap();
-        let (budget, _) = Budget::new(ym, Price::new(50000).unwrap());
+        let (budget, _) = Budget::new(USER.to_string(), ym, Price::new(50000).unwrap());
         let original_id = budget.id();
         let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
         let use_case = SetBudgetUseCase::new(repo);
 
-        let output = use_case.execute(make_input(2026, 7, 60000)).await.unwrap();
+        let output = use_case
+            .execute(USER, make_input(2026, 7, 60000))
+            .await
+            .unwrap();
 
         assert_eq!(output.id, original_id);
+    }
+
+    #[tokio::test]
+    async fn execute_creates_separate_budget_for_different_user_same_year_month() {
+        let ym = YearMonth::new(2026, 7).unwrap();
+        let (budget, _) = Budget::new(USER.to_string(), ym, Price::new(50000).unwrap());
+        let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
+        let use_case = SetBudgetUseCase::new(repo);
+
+        // 別ユーザーが同じ年月に予算を設定しても、既存の予算とは独立して新規作成される
+        let output = use_case
+            .execute("other-user", make_input(2026, 7, 30000))
+            .await
+            .unwrap();
+
+        assert_eq!(output.amount, 30000);
+        assert_eq!(output.balance, 30000);
     }
 
     // --- 異常系 ---
@@ -131,7 +166,7 @@ mod tests {
         let repo = Arc::new(InMemoryBudgetRepository::new());
         let use_case = SetBudgetUseCase::new(repo);
 
-        let result = use_case.execute(make_input(2026, 7, 0)).await;
+        let result = use_case.execute(USER, make_input(2026, 7, 0)).await;
 
         assert!(matches!(result, Err(UseCaseError::InvalidAmount)));
     }
@@ -141,7 +176,7 @@ mod tests {
         let repo = Arc::new(InMemoryBudgetRepository::new());
         let use_case = SetBudgetUseCase::new(repo);
 
-        let result = use_case.execute(make_input(2026, 13, 50000)).await;
+        let result = use_case.execute(USER, make_input(2026, 13, 50000)).await;
 
         assert!(matches!(result, Err(UseCaseError::DomainError(_))));
     }

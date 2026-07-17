@@ -12,6 +12,7 @@
 use std::sync::Arc;
 
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
@@ -27,6 +28,7 @@ use crate::infrastructure::{
     },
 };
 use crate::presentation::{
+    auth_middleware::require_auth,
     handlers::{auth, budgets, categories, health, wish_items},
     state::AppState,
 };
@@ -67,12 +69,8 @@ pub fn create_router(pool: PgPool) -> Router {
         auth_service,
     };
 
-    Router::new()
-        // ヘルスチェック — サーバーが起動しているか確認するだけのエンドポイント
-        .route("/health", get(health::health_check))
-        // 認証 — JWT の発行と検証
-        .route("/auth/token", post(auth::issue_token))
-        .route("/auth/verify", get(auth::verify_token))
+    // 業務 API — 有効な JWT（Authorization: Bearer <token>）がなければ 401。
+    let protected_routes = Router::new()
         // 欲しいものリスト — 一覧取得 / 新規追加
         .route(
             "/wish-items",
@@ -91,6 +89,16 @@ pub fn create_router(pool: PgPool) -> Router {
             "/wish-items/:id/purchase",
             post(wish_items::purchase_wish_item),
         )
+        .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
+
+    // 未認証で叩けるエンドポイント — ヘルスチェックと JWT の発行/検証のみ
+    let public_routes = Router::new()
+        .route("/health", get(health::health_check))
+        .route("/auth/token", post(auth::issue_token))
+        .route("/auth/verify", get(auth::verify_token));
+
+    public_routes
+        .merge(protected_routes)
         // AppState を全ハンドラーに注入する（Axum の State extractor で取り出せるようになる）
         .with_state(state)
 }

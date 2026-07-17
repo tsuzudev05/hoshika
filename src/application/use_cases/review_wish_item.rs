@@ -15,10 +15,15 @@ impl ReviewWishItemUseCase {
         Self { wish_item_repo }
     }
 
-    pub async fn execute(&self, id: Uuid, still_want: bool) -> Result<(), ReviewError> {
+    pub async fn execute(
+        &self,
+        user_id: &str,
+        id: Uuid,
+        still_want: bool,
+    ) -> Result<(), ReviewError> {
         let mut item = self
             .wish_item_repo
-            .find_by_id(id)
+            .find_by_id(user_id, id)
             .await?
             .ok_or(ReviewError::NotFound(id))?;
 
@@ -51,8 +56,11 @@ mod tests {
     use crate::domain::value_objects::{Category, Memo, Price, WishItemName, WishItemStatus};
     use crate::infrastructure::in_memory::InMemoryWishItemRepository;
 
+    const USER: &str = "user-1";
+
     fn make_inbox_item() -> WishItem {
         let (item, _) = WishItem::new(
+            USER.to_string(),
             WishItemName::new("テスト本").unwrap(),
             Price::new(2000).unwrap(),
             Category {
@@ -74,11 +82,11 @@ mod tests {
         repo.save(&item).await.unwrap();
 
         ReviewWishItemUseCase::new(repo.clone())
-            .execute(id, true)
+            .execute(USER, id, true)
             .await
             .unwrap();
 
-        let updated = repo.find_by_id(id).await.unwrap().unwrap();
+        let updated = repo.find_by_id(USER, id).await.unwrap().unwrap();
         assert_eq!(updated.status(), &WishItemStatus::NextToBuy);
     }
 
@@ -90,11 +98,11 @@ mod tests {
         repo.save(&item).await.unwrap();
 
         ReviewWishItemUseCase::new(repo.clone())
-            .execute(id, false)
+            .execute(USER, id, false)
             .await
             .unwrap();
 
-        let updated = repo.find_by_id(id).await.unwrap().unwrap();
+        let updated = repo.find_by_id(USER, id).await.unwrap().unwrap();
         assert_eq!(updated.status(), &WishItemStatus::OnHold);
     }
 
@@ -104,7 +112,7 @@ mod tests {
     async fn execute_returns_not_found_for_unknown_id() {
         let repo = Arc::new(InMemoryWishItemRepository::new());
         let result = ReviewWishItemUseCase::new(repo)
-            .execute(Uuid::new_v4(), true)
+            .execute(USER, Uuid::new_v4(), true)
             .await;
         assert!(matches!(result, Err(ReviewError::NotFound(_))));
     }
@@ -118,7 +126,22 @@ mod tests {
         repo.save(&item).await.unwrap();
 
         // NextToBuy から review するのは無効なステータス遷移
-        let result = ReviewWishItemUseCase::new(repo).execute(id, true).await;
+        let result = ReviewWishItemUseCase::new(repo)
+            .execute(USER, id, true)
+            .await;
         assert!(matches!(result, Err(ReviewError::DomainError(_))));
+    }
+
+    #[tokio::test]
+    async fn execute_returns_not_found_for_other_users_item() {
+        let repo = Arc::new(InMemoryWishItemRepository::new());
+        let item = make_inbox_item();
+        let id = item.id();
+        repo.save(&item).await.unwrap();
+
+        let result = ReviewWishItemUseCase::new(repo)
+            .execute("other-user", id, true)
+            .await;
+        assert!(matches!(result, Err(ReviewError::NotFound(_))));
     }
 }

@@ -63,7 +63,7 @@ pub async fn verify_token(
 }
 
 /// `Authorization: Bearer <token>` ヘッダーからトークン文字列を取り出す。
-fn extract_bearer_token(headers: &HeaderMap) -> Option<&str> {
+pub(crate) fn extract_bearer_token(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
