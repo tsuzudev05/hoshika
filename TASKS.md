@@ -24,7 +24,10 @@
     - `global-teardown.ts`が`purchase_records`を残したまま`wish_items`を削除しようとして外部キー制約違反で失敗するバグを発見・修正（`purchase_records`を先に削除してから`wish_items`を削除するよう変更）
     - DB直結処理を`e2e/db.ts`（`runSql`/`querySql`）に共通化し、`global-teardown.ts`と予算テストの両方から利用。psqlへの接続情報もPG*環境変数5つの組み立てから、パスワードを除いた接続URL+`PGPASSWORD`のみに簡素化した
     - DevContainer内（`cargo run`でバックエンド起動 + `npx playwright install-deps chromium`でOS依存関係導入）で全5シナリオが通過し、連続2回実行してもDBが恒久的に変化しないことを確認　完了（2026-07-15）
-  - [ ] CI（`.github/workflows/frontend.yml`）への組み込み — 現状`type-check`/`lint`/`test`/`build`のみでE2Eは含まれていない。Postgresサービスコンテナと`cargo run`起動をワークフローに追加する必要があり、未着手
+  - [x] CI（`.github/workflows/frontend.yml`）への組み込み — 既存の`check`ジョブとは独立した`e2e`ジョブを追加。`postgres:16-alpine`のサービスコンテナ、`cargo build`でのバックエンドビルド、ヘルスチェック付きの起動待ち、`playwright install --with-deps`、`npm run test:e2e`を実行し、失敗時は`test-results/`とバックエンドログをアーティファクト/ログ出力する
+    - バックエンドは`sqlx::migrate!`で起動時に自動マイグレーションするため（`src/main.rs`）、`rust.yml`と違い事前の`sqlx migrate run`は不要
+    - 全く空の新規Postgresコンテナに対してビルド済みバイナリを起動し`npm run test:e2e`を実行する形でCI環境を再現して検証。その過程で、予算が未設定のまま`afterAll`が`budgets`行を削除しようとすると`purchase_records`の外部キー制約（`purchase_records_budget_id_fkey`）違反になるバグを発見し、`deleteE2EPurchaseRecords()`を`budgets`の復元・削除より先に呼ぶよう修正（`e2e/db.ts`に`deleteE2EPurchaseRecords`/`deleteE2EWishItems`として共通化し`global-teardown.ts`とテスト双方から利用）
+    - 修正後、予算未設定/設定済みの両パターンで全5シナリオが通過し、DBが実行前の状態に正しく復元されることを確認　完了（2026-07-16）
 - [x] **予算設定UI** — 月次予算を登録・更新できるフォームを追加
   - バックエンド: `POST /budgets`（`SetBudgetUseCase` / `budgets::set_budget` ハンドラー）を新規実装。年月の予算が未設定なら新規作成、既存なら金額を更新する（`Budget::update_amount` で残高を差分調整し、既に記録された購入の影響を失わないようにした）
   - フロントエンド: `SetBudgetForm` コンポーネントを追加し `BudgetMeter` と連携。予算未設定時（404）はその場でフォームを表示、設定済みのときは「予算を編集」から更新できる

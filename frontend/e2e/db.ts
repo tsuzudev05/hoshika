@@ -40,3 +40,15 @@ export function querySql(sql: string): string[][] {
 
   return output ? output.split('\n').map((line) => line.split('|')) : []
 }
+
+// `E2E`接頭辞のwish_itemsを参照するpurchase_recordsを削除する。
+// purchase_recordsはwish_items/budgetsの両方を外部キー参照するため、
+// それらを削除・復元する前に必ず呼び出すこと。
+export function deleteE2EPurchaseRecords(): void {
+  runSql("DELETE FROM purchase_records WHERE wish_item_id IN (SELECT id FROM wish_items WHERE name LIKE 'E2E%');")
+}
+
+// `E2E`接頭辞のwish_itemsを削除する。
+export function deleteE2EWishItems(): void {
+  runSql("DELETE FROM wish_items WHERE name LIKE 'E2E%';")
+}

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { querySql, runSql } from './db'
+import { deleteE2EPurchaseRecords, querySql, runSql } from './db'
 
 async function addWishItem(
   page: Page,
@@ -103,6 +103,11 @@ test.describe('予算メーター', () => {
   })
 
   test.afterAll(() => {
+    // purchase_recordsがbudgetsを外部キー参照しているため、budgetsの復元・削除より
+    // 先にこのテストで作った購入記録を消しておく（未設定に戻す場合はこれが無いと
+    // budgets行の削除が外部キー制約違反になる）。
+    deleteE2EPurchaseRecords()
+
     if (originalBudget) {
       runSql(
         `UPDATE budgets SET amount = ${originalBudget.amount}, balance = ${originalBudget.balance} WHERE year = ${year} AND month = ${month};`,
