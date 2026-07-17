@@ -22,7 +22,7 @@ mod tests {
 
     fn make_budget(amount: u64, balance: i64) -> Budget {
         let ym = YearMonth::new(2026, 6).unwrap();
-        let (mut b, _) = Budget::new(ym, Price::new(amount).unwrap());
+        let (mut b, _) = Budget::new("test-user".to_string(), ym, Price::new(amount).unwrap());
         let spend = amount as i64 - balance;
         if spend > 0 {
             b.record_purchase(Price::new(spend as u64).unwrap());

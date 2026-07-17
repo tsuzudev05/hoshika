@@ -34,13 +34,14 @@ impl PurchaseWishItemUseCase {
 
     pub async fn execute(
         &self,
+        user_id: &str,
         wish_item_id: Uuid,
         actual_price: u64,
         memo: Option<String>,
     ) -> Result<(), UseCaseError> {
         let mut item = self
             .wish_item_repo
-            .find_by_id(wish_item_id)
+            .find_by_id(user_id, wish_item_id)
             .await?
             .ok_or(UseCaseError::WishItemNotFound(wish_item_id))?;
 
@@ -49,7 +50,7 @@ impl PurchaseWishItemUseCase {
             .map_err(|e| UseCaseError::DomainError(e.to_string()))?;
         let mut budget = self
             .budget_repo
-            .find_by_year_month(year_month)
+            .find_by_year_month(user_id, year_month)
             .await?
             .ok_or(UseCaseError::BudgetNotFound)?;
 
@@ -60,6 +61,7 @@ impl PurchaseWishItemUseCase {
         budget.record_purchase(price.clone());
 
         let record = PurchaseRecord::new(
+            user_id.to_string(),
             budget.id(),
             item.id(),
             price,
@@ -100,8 +102,11 @@ mod tests {
         InMemoryBudgetRepository, InMemoryPurchaseRecordRepository, InMemoryWishItemRepository,
     };
 
+    const USER: &str = "user-1";
+
     fn make_next_to_buy_item(price: u64) -> WishItem {
         let (mut item, _) = WishItem::new(
+            USER.to_string(),
             WishItemName::new("テスト本").unwrap(),
             Price::new(price).unwrap(),
             Category {
@@ -117,7 +122,7 @@ mod tests {
     fn make_current_month_budget(amount: u64) -> Budget {
         let now = Utc::now();
         let ym = YearMonth::new(now.year() as u16, now.month() as u8).unwrap();
-        let (budget, _) = Budget::new(ym, Price::new(amount).unwrap());
+        let (budget, _) = Budget::new(USER.to_string(), ym, Price::new(amount).unwrap());
         budget
     }
 
@@ -161,11 +166,15 @@ mod tests {
         let fixture = setup(Some(make_current_month_budget(50000)));
         fixture.wish_item_repo.save(&item).await.unwrap();
 
-        fixture.use_case.execute(id, 2800, None).await.unwrap();
+        fixture
+            .use_case
+            .execute(USER, id, 2800, None)
+            .await
+            .unwrap();
 
         let updated = fixture
             .wish_item_repo
-            .find_by_id(id)
+            .find_by_id(USER, id)
             .await
             .unwrap()
             .unwrap();
@@ -181,11 +190,15 @@ mod tests {
         let fixture = setup(Some(budget));
         fixture.wish_item_repo.save(&item).await.unwrap();
 
-        fixture.use_case.execute(id, 2800, None).await.unwrap();
+        fixture
+            .use_case
+            .execute(USER, id, 2800, None)
+            .await
+            .unwrap();
 
         let updated_budget = fixture
             .budget_repo
-            .find_by_id(budget_id)
+            .find_by_id(USER, budget_id)
             .await
             .unwrap()
             .unwrap();
@@ -203,7 +216,7 @@ mod tests {
 
         fixture
             .use_case
-            .execute(id, 2800, Some("セールで安かった".to_string()))
+            .execute(USER, id, 2800, Some("セールで安かった".to_string()))
             .await
             .unwrap();
 
@@ -221,7 +234,10 @@ mod tests {
     async fn execute_returns_error_when_wish_item_not_found() {
         let fixture = setup(Some(make_current_month_budget(50000)));
 
-        let result = fixture.use_case.execute(Uuid::new_v4(), 1000, None).await;
+        let result = fixture
+            .use_case
+            .execute(USER, Uuid::new_v4(), 1000, None)
+            .await;
 
         assert!(matches!(result, Err(UseCaseError::WishItemNotFound(_))));
     }
@@ -233,7 +249,7 @@ mod tests {
         let fixture = setup(None);
         fixture.wish_item_repo.save(&item).await.unwrap();
 
-        let result = fixture.use_case.execute(id, 1000, None).await;
+        let result = fixture.use_case.execute(USER, id, 1000, None).await;
 
         assert!(matches!(result, Err(UseCaseError::BudgetNotFound)));
     }
@@ -241,6 +257,7 @@ mod tests {
     #[tokio::test]
     async fn execute_returns_domain_error_when_item_is_not_next_to_buy() {
         let (item, _) = WishItem::new(
+            USER.to_string(),
             WishItemName::new("テスト本").unwrap(),
             Price::new(1000).unwrap(),
             Category {
@@ -253,7 +270,7 @@ mod tests {
         let fixture = setup(Some(make_current_month_budget(50000)));
         fixture.wish_item_repo.save(&item).await.unwrap();
 
-        let result = fixture.use_case.execute(id, 1000, None).await;
+        let result = fixture.use_case.execute(USER, id, 1000, None).await;
 
         assert!(matches!(result, Err(UseCaseError::DomainError(_))));
     }
@@ -267,14 +284,30 @@ mod tests {
         let fixture = setup(Some(budget));
         fixture.wish_item_repo.save(&item).await.unwrap();
 
-        fixture.use_case.execute(id, 60000, None).await.unwrap();
+        fixture
+            .use_case
+            .execute(USER, id, 60000, None)
+            .await
+            .unwrap();
 
         let updated_budget = fixture
             .budget_repo
-            .find_by_id(budget_id)
+            .find_by_id(USER, budget_id)
             .await
             .unwrap()
             .unwrap();
         assert!(updated_budget.balance().is_exceeded());
+    }
+
+    #[tokio::test]
+    async fn execute_returns_not_found_when_wish_item_belongs_to_other_user() {
+        let item = make_next_to_buy_item(3000);
+        let id = item.id();
+        let fixture = setup(Some(make_current_month_budget(50000)));
+        fixture.wish_item_repo.save(&item).await.unwrap();
+
+        let result = fixture.use_case.execute("other-user", id, 2800, None).await;
+
+        assert!(matches!(result, Err(UseCaseError::WishItemNotFound(_))));
     }
 }

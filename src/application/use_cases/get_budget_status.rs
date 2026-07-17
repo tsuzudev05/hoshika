@@ -18,12 +18,13 @@ impl GetBudgetStatusUseCase {
 
     pub async fn execute(
         &self,
+        user_id: &str,
         year: u16,
         month: u8,
     ) -> Result<Option<BudgetStatusOutput>, RepositoryError> {
         let ym = YearMonth::new(year, month).map_err(|_| RepositoryError::NotFound)?;
 
-        let budget = self.budget_repo.find_by_year_month(ym).await?;
+        let budget = self.budget_repo.find_by_year_month(user_id, ym).await?;
 
         Ok(budget.map(|b| BudgetStatusOutput {
             id: b.id(),
@@ -45,9 +46,11 @@ mod tests {
     use crate::domain::value_objects::{Price, YearMonth};
     use crate::infrastructure::in_memory::InMemoryBudgetRepository;
 
+    const USER: &str = "user-1";
+
     fn make_budget(year: u16, month: u8, amount: u64) -> Budget {
         let ym = YearMonth::new(year, month).unwrap();
-        let (b, _) = Budget::new(ym, Price::new(amount).unwrap());
+        let (b, _) = Budget::new(USER.to_string(), ym, Price::new(amount).unwrap());
         b
     }
 
@@ -59,7 +62,7 @@ mod tests {
         let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
 
         let status = GetBudgetStatusUseCase::new(repo)
-            .execute(2026, 6)
+            .execute(USER, 2026, 6)
             .await
             .unwrap()
             .unwrap();
@@ -75,7 +78,7 @@ mod tests {
     async fn execute_returns_none_for_missing_year_month() {
         let repo = Arc::new(InMemoryBudgetRepository::new());
         let result = GetBudgetStatusUseCase::new(repo)
-            .execute(2026, 6)
+            .execute(USER, 2026, 6)
             .await
             .unwrap();
         assert!(result.is_none());
@@ -88,12 +91,24 @@ mod tests {
         let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
 
         let status = GetBudgetStatusUseCase::new(repo)
-            .execute(2026, 6)
+            .execute(USER, 2026, 6)
             .await
             .unwrap()
             .unwrap();
 
         assert_eq!(status.balance, -500);
         assert!(status.is_exceeded);
+    }
+
+    #[tokio::test]
+    async fn execute_returns_none_for_other_users_budget() {
+        let budget = make_budget(2026, 6, 50000);
+        let repo = Arc::new(InMemoryBudgetRepository::with_budgets(vec![budget]));
+
+        let result = GetBudgetStatusUseCase::new(repo)
+            .execute("other-user", 2026, 6)
+            .await
+            .unwrap();
+        assert!(result.is_none());
     }
 }

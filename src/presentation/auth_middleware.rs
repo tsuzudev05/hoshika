@@ -15,15 +15,24 @@ use crate::presentation::state::AppState;
 
 pub async fn require_auth(
     State(state): State<AppState>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let token = extract_bearer_token(request.headers()).ok_or(StatusCode::UNAUTHORIZED)?;
+    let method = request.method().clone();
+    let path = request.uri().path().to_string();
 
-    state
-        .auth_service
-        .validate_token(token)
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let token = extract_bearer_token(request.headers()).ok_or_else(|| {
+        tracing::warn!(%method, %path, "認証失敗: Authorization ヘッダーが未指定または不正な形式");
+        StatusCode::UNAUTHORIZED
+    })?;
+
+    let claims = state.auth_service.validate_token(token).map_err(|err| {
+        tracing::warn!(%method, %path, error = %err, "認証失敗: トークン検証エラー");
+        StatusCode::UNAUTHORIZED
+    })?;
+
+    // ハンドラーが Extension<JwtClaims> で user_id（sub）を取り出せるようにする
+    request.extensions_mut().insert(claims);
 
     Ok(next.run(request).await)
 }

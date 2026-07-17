@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// フィールド名は JWT 標準（RFC 7519）の登録済みクレーム名をそのまま使用する。
 /// serde によって JSON にシリアライズされるため、名前を変えると JWT の仕様から外れる。
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwtClaims {
     /// subject — トークンの主体（このアプリではユーザー ID）
     pub sub: String,

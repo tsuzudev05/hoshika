@@ -30,6 +30,7 @@ fn parse_status(s: &str) -> Result<WishItemStatus, RepositoryError> {
 
 pub(super) fn row_to_wish_item(row: &sqlx::postgres::PgRow) -> Result<WishItem, RepositoryError> {
     let id: Uuid = row.try_get("id").map_err(to_repo_err)?;
+    let user_id: String = row.try_get("user_id").map_err(to_repo_err)?;
     let name: String = row.try_get("name").map_err(to_repo_err)?;
     let price_val: i64 = row.try_get("price").map_err(to_repo_err)?;
     let category_id: Uuid = row.try_get("category_id").map_err(to_repo_err)?;
@@ -50,6 +51,6 @@ pub(super) fn row_to_wish_item(row: &sqlx::postgres::PgRow) -> Result<WishItem, 
     let memo = Memo::new(memo);
 
     Ok(WishItem::reconstitute(
-        id, name, price, category, status, memo, added_at, updated_at,
+        id, user_id, name, price, category, status, memo, added_at, updated_at,
     ))
 }

@@ -24,10 +24,11 @@ impl PostgresBudgetRepository {
 
 #[async_trait]
 impl BudgetRepository for PostgresBudgetRepository {
-    async fn find_by_id(&self, id: Uuid) -> Result<Option<Budget>, RepositoryError> {
+    async fn find_by_id(&self, user_id: &str, id: Uuid) -> Result<Option<Budget>, RepositoryError> {
         let row = sqlx::query(
-            "SELECT id, year, month, amount, balance, set_at FROM budgets WHERE id = $1",
+            "SELECT id, user_id, year, month, amount, balance, set_at FROM budgets WHERE user_id = $1 AND id = $2",
         )
+        .bind(user_id)
         .bind(id)
         .fetch_optional(&*self.pool)
         .await
@@ -36,10 +37,15 @@ impl BudgetRepository for PostgresBudgetRepository {
         row.map(|r| row_to_budget(&r)).transpose()
     }
 
-    async fn find_by_year_month(&self, ym: YearMonth) -> Result<Option<Budget>, RepositoryError> {
+    async fn find_by_year_month(
+        &self,
+        user_id: &str,
+        ym: YearMonth,
+    ) -> Result<Option<Budget>, RepositoryError> {
         let row = sqlx::query(
-            "SELECT id, year, month, amount, balance, set_at FROM budgets WHERE year = $1 AND month = $2",
+            "SELECT id, user_id, year, month, amount, balance, set_at FROM budgets WHERE user_id = $1 AND year = $2 AND month = $3",
         )
+        .bind(user_id)
         .bind(ym.year as i16)
         .bind(ym.month as i16)
         .fetch_optional(&*self.pool)
@@ -52,14 +58,15 @@ impl BudgetRepository for PostgresBudgetRepository {
     async fn save(&self, budget: &Budget) -> Result<(), RepositoryError> {
         sqlx::query(
             r#"
-            INSERT INTO budgets (id, year, month, amount, balance, set_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO budgets (id, user_id, year, month, amount, balance, set_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (id) DO UPDATE SET
                 amount  = EXCLUDED.amount,
                 balance = EXCLUDED.balance
             "#,
         )
         .bind(budget.id())
+        .bind(budget.user_id())
         .bind(budget.year_month().year as i16)
         .bind(budget.year_month().month as i16)
         .bind(budget.amount().value() as i64)

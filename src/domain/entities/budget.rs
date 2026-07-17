@@ -11,6 +11,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct Budget {
     id: Uuid,
+    user_id: String,
     year_month: YearMonth,
     amount: Price,
     balance: Balance,
@@ -18,11 +19,12 @@ pub struct Budget {
 }
 
 impl Budget {
-    pub fn new(year_month: YearMonth, amount: Price) -> (Self, Vec<DomainEvent>) {
+    pub fn new(user_id: String, year_month: YearMonth, amount: Price) -> (Self, Vec<DomainEvent>) {
         let id = Uuid::new_v4();
         let balance = Balance::from_price(&amount);
         let budget = Self {
             id,
+            user_id,
             year_month,
             amount: amount.clone(),
             balance,
@@ -40,6 +42,7 @@ impl Budget {
     /// Infrastructure 層のリポジトリからのみ呼ばれる。
     pub fn reconstitute(
         id: Uuid,
+        user_id: String,
         year_month: YearMonth,
         amount: Price,
         balance: Balance,
@@ -47,6 +50,7 @@ impl Budget {
     ) -> Self {
         Self {
             id,
+            user_id,
             year_month,
             amount,
             balance,
@@ -58,6 +62,10 @@ impl Budget {
 
     pub fn id(&self) -> Uuid {
         self.id
+    }
+
+    pub fn user_id(&self) -> &str {
+        &self.user_id
     }
 
     pub fn year_month(&self) -> YearMonth {
@@ -127,7 +135,7 @@ mod tests {
 
     fn make_budget(amount: u64) -> Budget {
         let ym = YearMonth::new(2026, 6).unwrap();
-        let (b, _) = Budget::new(ym, Price::new(amount).unwrap());
+        let (b, _) = Budget::new("test-user".to_string(), ym, Price::new(amount).unwrap());
         b
     }
 

@@ -27,7 +27,11 @@ impl AddWishItemUseCase {
         }
     }
 
-    pub async fn execute(&self, input: AddWishItemInput) -> Result<WishItemOutput, UseCaseError> {
+    pub async fn execute(
+        &self,
+        user_id: &str,
+        input: AddWishItemInput,
+    ) -> Result<WishItemOutput, UseCaseError> {
         let category = self
             .category_repo
             .find_by_id(input.category_id)
@@ -39,7 +43,8 @@ impl AddWishItemUseCase {
         let price = Price::new(input.price).map_err(|_| UseCaseError::InvalidPrice)?;
         let memo = Memo::new(input.memo.unwrap_or_default());
 
-        let (item, _events) = WishItem::new(name, price, category.clone(), memo);
+        let (item, _events) =
+            WishItem::new(user_id.to_string(), name, price, category.clone(), memo);
 
         self.wish_item_repo.save(&item).await?;
 
@@ -102,12 +107,15 @@ mod tests {
         let (_, use_case) = make_use_case(category);
 
         let output = use_case
-            .execute(AddWishItemInput {
-                name: "Rustプログラミング入門".to_string(),
-                price: 3000,
-                category_id,
-                memo: None,
-            })
+            .execute(
+                "user-1",
+                AddWishItemInput {
+                    name: "Rustプログラミング入門".to_string(),
+                    price: 3000,
+                    category_id,
+                    memo: None,
+                },
+            )
             .await
             .unwrap();
 
@@ -125,16 +133,22 @@ mod tests {
         let (wish_item_repo, use_case) = make_use_case(category);
 
         let output = use_case
-            .execute(AddWishItemInput {
-                name: "テスト商品".to_string(),
-                price: 1000,
-                category_id,
-                memo: Some("メモあり".to_string()),
-            })
+            .execute(
+                "user-1",
+                AddWishItemInput {
+                    name: "テスト商品".to_string(),
+                    price: 1000,
+                    category_id,
+                    memo: Some("メモあり".to_string()),
+                },
+            )
             .await
             .unwrap();
 
-        let saved = wish_item_repo.find_by_id(output.id).await.unwrap();
+        let saved = wish_item_repo
+            .find_by_id("user-1", output.id)
+            .await
+            .unwrap();
         assert!(saved.is_some());
         assert_eq!(output.memo, "メモあり");
     }
@@ -148,12 +162,15 @@ mod tests {
         let use_case = AddWishItemUseCase::new(wish_item_repo, category_repo);
 
         let result = use_case
-            .execute(AddWishItemInput {
-                name: "テスト".to_string(),
-                price: 1000,
-                category_id: Uuid::new_v4(),
-                memo: None,
-            })
+            .execute(
+                "user-1",
+                AddWishItemInput {
+                    name: "テスト".to_string(),
+                    price: 1000,
+                    category_id: Uuid::new_v4(),
+                    memo: None,
+                },
+            )
             .await;
 
         assert!(matches!(result, Err(UseCaseError::CategoryNotFound(_))));
@@ -166,12 +183,15 @@ mod tests {
         let (_, use_case) = make_use_case(category);
 
         let result = use_case
-            .execute(AddWishItemInput {
-                name: "".to_string(),
-                price: 1000,
-                category_id,
-                memo: None,
-            })
+            .execute(
+                "user-1",
+                AddWishItemInput {
+                    name: "".to_string(),
+                    price: 1000,
+                    category_id,
+                    memo: None,
+                },
+            )
             .await;
 
         assert!(matches!(result, Err(UseCaseError::DomainError(_))));

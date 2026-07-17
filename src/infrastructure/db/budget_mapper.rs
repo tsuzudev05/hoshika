@@ -9,6 +9,7 @@ use crate::domain::value_objects::{Balance, Price, YearMonth};
 
 pub(super) fn row_to_budget(row: &sqlx::postgres::PgRow) -> Result<Budget, RepositoryError> {
     let id: Uuid = row.try_get("id").map_err(to_repo_err)?;
+    let user_id: String = row.try_get("user_id").map_err(to_repo_err)?;
     let year: i16 = row.try_get("year").map_err(to_repo_err)?;
     let month: i16 = row.try_get("month").map_err(to_repo_err)?;
     let amount_val: i64 = row.try_get("amount").map_err(to_repo_err)?;
@@ -22,6 +23,6 @@ pub(super) fn row_to_budget(row: &sqlx::postgres::PgRow) -> Result<Budget, Repos
     let balance = Balance::new(balance_val);
 
     Ok(Budget::reconstitute(
-        id, year_month, amount, balance, set_at,
+        id, user_id, year_month, amount, balance, set_at,
     ))
 }
