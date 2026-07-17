@@ -1,6 +1,8 @@
 // fetchの直接呼び出しをコンポーネントから隠蔽する薄いクライアント。
 // vite.config.ts の proxy 設定により /api は Axum サーバー（:3000）へ転送される。
 
+import { getAuthToken } from './auth'
+
 const BASE_URL = '/api'
 
 export class ApiError extends Error {
@@ -16,10 +18,12 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
+    const token = await getAuthToken()
     res = await fetch(`${BASE_URL}${path}`, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
         ...init?.headers,
       },
     })
