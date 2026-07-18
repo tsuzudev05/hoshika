@@ -193,10 +193,19 @@ fly postgres attach <postgres-app-name>
 
 # 3. JWT_SECRET を設定する（本番用の値。開発用のデフォルト鍵は使わないこと）
 fly secrets set JWT_SECRET=<本番用の秘密鍵>
+
+# 4.（任意）Sentryでのエラートラッキングを有効化する場合、バックエンド用のDSNを設定する
+fly secrets set SENTRY_DSN=<SentryプロジェクトのDSN>
 ```
 
 GitHub リポジトリの **Settings → Secrets and variables → Actions** に `FLY_API_TOKEN` を登録する
 （`fly tokens create deploy` で発行したトークンを使う）。
+
+> フロントエンド用のSentry（`VITE_SENTRY_DSN`）はViteがビルド時に静的に埋め込むため、
+> `fly secrets`（実行時の環境変数）では反映されない。有効化する場合は`frontend/.env`に
+> 設定した上で`npm run build`する（またはDockerビルド時に`--build-arg`で渡すようDockerfileを
+> 拡張する）必要がある。未設定の場合はエラートラッキングが無効なだけで、アプリの動作自体には
+> 影響しない。
 
 ### 自動デプロイ
 

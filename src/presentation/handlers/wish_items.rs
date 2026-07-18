@@ -16,6 +16,7 @@ use crate::application::{
 };
 use crate::domain::entities::wish_item::WishItem;
 use crate::infrastructure::auth::JwtClaims;
+use crate::presentation::handlers::internal_error;
 use crate::presentation::state::AppState;
 
 fn wish_item_to_output(item: &WishItem) -> WishItemOutput {
@@ -39,10 +40,7 @@ pub async fn list_wish_items(
             let outputs: Vec<WishItemOutput> = items.iter().map(wish_item_to_output).collect();
             (StatusCode::OK, Json(json!(outputs)))
         }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        ),
+        Err(e) => internal_error(e),
     }
 }
 
@@ -66,10 +64,7 @@ pub async fn add_wish_item(
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": msg})),
         ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        ),
+        Err(e) => internal_error(e),
     }
 }
 
@@ -90,10 +85,7 @@ pub async fn review_wish_item(
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": msg})),
         ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        ),
+        Err(e) => internal_error(e),
     }
 }
 
@@ -129,9 +121,6 @@ pub async fn purchase_wish_item(
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": msg})),
         ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        ),
+        Err(e) => internal_error(e),
     }
 }

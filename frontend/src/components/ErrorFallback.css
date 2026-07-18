@@ -1,0 +1,12 @@
+.error-fallback {
+  border: 1px solid #f2d7d7;
+  border-radius: 8px;
+  padding: 1.5rem 1rem;
+  margin: 1rem;
+  text-align: center;
+  color: #8a2020;
+}
+
+.error-fallback__message {
+  margin: 0 0 0.75rem;
+}

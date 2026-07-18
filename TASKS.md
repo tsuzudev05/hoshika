@@ -54,9 +54,13 @@
   - `src/main.rs`に`STATIC_DIR`環境変数による分岐を追加。設定時のみAxumバイナリが`frontend/dist`を静的配信し、APIを`/api`配下にネストする（未設定のローカル/CIでは従来通りAPIがルート直下のまま動作し、既存のE2E・CIには一切影響しない）
   - ローカルで`STATIC_DIR`未設定/設定済みの両方を実機確認（`/health`・`/api/health`・`/`・静的アセット配信）。`cargo test`101件も通過を確認
   - この環境にはFly.ioアカウント認証・`flyctl`がないため、実際の`fly launch`（アプリ作成）・`fly postgres create`・`fly secrets set`・GitHub Secretsへの`FLY_API_TOKEN`登録はユーザー自身が行う必要がある（手順は[DEVELOPMENT.md](./DEVELOPMENT.md#デプロイflyio)に記載）。`docker build`自体もこの環境にDockerがないため未実行・未検証
-- [ ] **Sentry導入** — エラートラッキング（アプリ層とインフラ層でのエラー分類も意識）
+- [x] **Sentry導入** — エラートラッキング（アプリ層とインフラ層でのエラー分類も意識）
+  - バックエンド: `sentry`クレート（`sentry-tracing`統合込み、`rustls`/`reqwest`トランスポート）を追加。`SENTRY_DSN`未設定時は`sentry::init`自体を呼ばずcapture系呼び出しが自動でno-opになる設計にし、ローカル/CIでは分岐なしで無効化される
+  - エラー分類: 各ハンドラーの「どの業務エラーにも当てはまらない`Err(e)`」の受け皿（＝リポジトリ層の`Unexpected`など、インフラ層由来で分類しようがないエラー）だけを`src/presentation/handlers/mod.rs`の`internal_error()`に集約し、`tracing::error!`でログ。`sentry::integrations::tracing::layer()`がERRORレベルのログをSentryイベントとして送るため、404/422等のドメイン上想定済みのエラーはSentryに一切飛ばない
+  - フロントエンド: `@sentry/react`を追加。`VITE_SENTRY_DSN`未設定時は`initSentry()`が何もしない。`Sentry.ErrorBoundary`で`App`全体を包み予期しないレンダリング例外を`ErrorFallback`で表示。`api/client.ts`では status 0（ネットワーク断）・5xx・レスポンス契約違反（`res.ok`なのにbody解析失敗）のみ`Sentry.captureException`し、4xx（バリデーション・未認証・未検出など）は送らない
+  - パフォーマンス計測（`tracesSampleRate`等）は別タスクのスコープのため含めていない
+  - 動作確認: DBコンテナを一時停止させて`/categories`を叩き、`internal_error()`のERRORログ（`unexpected error: ... database ...`）が出ることを実機で確認。ダミーDSNを設定してもバックエンド起動が壊れないことも確認。`cargo fmt`/`clippy`/`test`（101件）、フロントエンドの`type-check`/`lint`/`test`（38件）/`build`、`npm run test:e2e`（実ブラウザ・5シナリオ）が全て通過することを確認　完了（2026-07-18）
 - [ ] **パフォーマンス計測** — Lighthouse・DBクエリ最適化
-- [ ] **セキュリティ確認** — CORS・SQLインジェクション・認証周りの確認
 - [ ] ✅ チェックポイント: 「新機能を追加するとき、どのレイヤーを触るか迷わないか？」
 
 ### 学習（並行）

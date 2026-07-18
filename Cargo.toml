@@ -38,6 +38,9 @@ jsonwebtoken = "9"
 # Config
 dotenvy = "0.15"
 
+# Error tracking
+sentry = { version = "0.48.5", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls", "tracing"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
 

@@ -10,6 +10,7 @@ use crate::application::dto::SetBudgetInput;
 use crate::application::use_cases::get_budget_status::GetBudgetStatusUseCase;
 use crate::application::use_cases::set_budget::{SetBudgetUseCase, UseCaseError};
 use crate::infrastructure::auth::JwtClaims;
+use crate::presentation::handlers::internal_error;
 use crate::presentation::state::AppState;
 
 #[derive(Deserialize)]
@@ -33,10 +34,7 @@ pub async fn get_budget_status(
             StatusCode::NOT_FOUND,
             Json(json!({"error": "budget not found for the specified year/month"})),
         ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        ),
+        Err(e) => internal_error(e),
     }
 }
 
@@ -56,9 +54,6 @@ pub async fn set_budget(
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": msg})),
         ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        ),
+        Err(e) => internal_error(e),
     }
 }
