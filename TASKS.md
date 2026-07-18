@@ -50,6 +50,10 @@
     - フロントエンドが一切トークンを送信していなかったため`frontend/src/api/auth.ts`を新規追加し、起動時に固定`user_id`（`hoshika-app`）で`/auth/token`を取得・キャッシュして`apiClient`の全リクエストに`Authorization`ヘッダーを付与するよう変更。MSWの既定ハンドラーにもトークン取得のモックを追加
     - バックエンド単体テスト91件・フロントエンド38件が全て通過し、実際にバックエンドとフロントを起動して未トークン時401・トークン付き200を確認。`npm run test:e2e`（実ブラウザ）でも全5シナリオが新しい認証フローで通過することを確認　完了（2026-07-17）
 - [ ] **Fly.ioデプロイ** — ステージング環境・自動デプロイ
+  - 設定ファイル一式を作成済み: `Dockerfile`（フロントエンドビルド→Rustビルド→実行イメージの3段階）・`.dockerignore`・`fly.toml`・`.github/workflows/fly-deploy.yml`（`main`へのpushで自動デプロイ）
+  - `src/main.rs`に`STATIC_DIR`環境変数による分岐を追加。設定時のみAxumバイナリが`frontend/dist`を静的配信し、APIを`/api`配下にネストする（未設定のローカル/CIでは従来通りAPIがルート直下のまま動作し、既存のE2E・CIには一切影響しない）
+  - ローカルで`STATIC_DIR`未設定/設定済みの両方を実機確認（`/health`・`/api/health`・`/`・静的アセット配信）。`cargo test`101件も通過を確認
+  - この環境にはFly.ioアカウント認証・`flyctl`がないため、実際の`fly launch`（アプリ作成）・`fly postgres create`・`fly secrets set`・GitHub Secretsへの`FLY_API_TOKEN`登録はユーザー自身が行う必要がある（手順は[DEVELOPMENT.md](./DEVELOPMENT.md#デプロイflyio)に記載）。`docker build`自体もこの環境にDockerがないため未実行・未検証
 - [ ] **Sentry導入** — エラートラッキング（アプリ層とインフラ層でのエラー分類も意識）
 - [ ] **パフォーマンス計測** — Lighthouse・DBクエリ最適化
 - [ ] **セキュリティ確認** — CORS・SQLインジェクション・認証周りの確認

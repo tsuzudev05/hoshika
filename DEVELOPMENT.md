@@ -171,6 +171,54 @@ npm run test:e2e
 
 ---
 
+## デプロイ（Fly.io）
+
+フロントエンド（Vite）とバックエンド（Axum）を単一の Fly app にまとめ、Axum バイナリが
+ビルド済みフロントエンド（`frontend/dist`）を静的配信する構成。API は本番では `/api` 配下に
+ネストされる（`STATIC_DIR` 環境変数が設定されている時だけ有効になり、ローカル/CI では未設定
+のため従来通り API はルート直下で動く。`src/main.rs` 参照）。
+
+### 初回セットアップ（アカウントに紐づく操作のため、Fly.io アカウントを持つ本人が手元で実行）
+
+```bash
+# flyctl のインストール（未導入の場合）
+curl -L https://fly.io/install.sh | sh
+
+# 1. アプリを作成する（fly.toml の app 名を実際のものに更新すること）
+fly launch --no-deploy
+
+# 2. Postgres を作成してアタッチする（DATABASE_URL が自動で secrets に設定される）
+fly postgres create
+fly postgres attach <postgres-app-name>
+
+# 3. JWT_SECRET を設定する（本番用の値。開発用のデフォルト鍵は使わないこと）
+fly secrets set JWT_SECRET=<本番用の秘密鍵>
+```
+
+GitHub リポジトリの **Settings → Secrets and variables → Actions** に `FLY_API_TOKEN` を登録する
+（`fly tokens create deploy` で発行したトークンを使う）。
+
+### 自動デプロイ
+
+上記セットアップ後は `main` ブランチへの push で `.github/workflows/fly-deploy.yml` が
+`flyctl deploy --remote-only` を実行し、自動的に再デプロイされる（Fly のリモートビルダーを
+使うため GitHub Actions 側に Docker 環境は不要）。手動でデプロイしたい場合は
+Actions タブから `Fly Deploy` ワークフローを `workflow_dispatch` で実行するか、
+手元で `fly deploy` を実行する。
+
+### ローカルで本番相当の配信を確認する
+
+```bash
+cd frontend && npm run build && cd ..
+STATIC_DIR=$(pwd)/frontend/dist cargo run
+# http://localhost:3000/       … フロントエンド
+# http://localhost:3000/api/health … API（本番と同じ /api プレフィックス）
+```
+
+`docker build .` でイメージがビルドできることも変更のたびに確認するとよい。
+
+---
+
 ## ファイル構成
 
 ```
@@ -181,6 +229,9 @@ npm run test:e2e
 └── docker-compose.override.yml          # 個人設定オーバーライド（Git 管理外・各自作成）
 
 .env.example            # 環境変数テンプレート（.env にコピーして使う）
+
+Dockerfile              # Fly.io デプロイ用（フロントエンドビルド→Rustビルド→実行イメージの3段階）
+fly.toml                # Fly.io アプリ設定（内部ポート・ヘルスチェック・環境変数）
 
 Cargo.toml              # Rust 依存クレート（axum / sqlx / uuid / thiserror 等）
 Cargo.lock              # バージョン固定ファイル（Git 管理対象）

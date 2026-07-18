@@ -1,0 +1,37 @@
+# Fly.io デプロイ設定。
+#
+# 初回セットアップ（アカウントに紐づく操作のため手元で実行すること）:
+#   1. fly launch --no-deploy  … アプリ名を確定し、必要なら app 名をこのファイルに反映する
+#   2. fly postgres create && fly postgres attach <postgres-app-name>
+#      … DATABASE_URL が secrets に自動設定される
+#   3. fly secrets set JWT_SECRET=<本番用の秘密鍵>
+#   4. GitHub リポジトリの Secrets に FLY_API_TOKEN を登録（fly tokens create deploy で発行）
+# 以降は main への push で .github/workflows/fly-deploy.yml が自動デプロイする。
+# 手順の詳細は DEVELOPMENT.md を参照。
+
+app = "hoshika"
+primary_region = "nrt"
+
+[build]
+
+[env]
+APP_ENV = "production"
+STATIC_DIR = "/app/frontend/dist"
+
+[http_service]
+internal_port = 3000
+force_https = true
+auto_stop_machines = true
+auto_start_machines = true
+min_machines_running = 0
+
+[[http_service.checks]]
+grace_period = "10s"
+interval = "15s"
+method = "get"
+path = "/api/health"
+timeout = "5s"
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "256mb"

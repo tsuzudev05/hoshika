@@ -1,0 +1,17 @@
+.git/
+.github/
+.devcontainer/
+.claude/
+.zed/
+.vscode/
+target/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+zenn-articles/
+*.md
+.env
+.env.example
+*.pem
+/backend.log
