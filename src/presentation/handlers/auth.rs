@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::infrastructure::auth::AuthError;
+use crate::presentation::handlers::internal_error;
 use crate::presentation::state::AppState;
 
 #[derive(Deserialize)]
@@ -24,10 +25,7 @@ pub async fn issue_token(
 ) -> (StatusCode, Json<Value>) {
     match state.auth_service.generate_token(&body.user_id) {
         Ok(token) => (StatusCode::CREATED, Json(json!({ "token": token }))),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": e.to_string() })),
-        ),
+        Err(e) => internal_error(e),
     }
 }
 

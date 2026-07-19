@@ -13,12 +13,34 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
 
+    // SENTRY_DSN が設定されている場合のみ有効化する。未設定のローカル/CIでは
+    // sentryのcapture系呼び出し（tracingレイヤー経由も含む）はクライアント未初期化時
+    // 自動的にno-opになるため、分岐を増やさずに済む。
+    // ガードはmain関数の終わりまでドロップさせない（ドロップ時に未送信イベントをflushする）。
+    let _sentry_guard = std::env::var("SENTRY_DSN").ok().map(|dsn| {
+        sentry::init((
+            dsn,
+            sentry::ClientOptions {
+                release: sentry::release_name!(),
+                environment: Some(
+                    std::env::var("APP_ENV")
+                        .unwrap_or_else(|_| "development".into())
+                        .into(),
+                ),
+                ..Default::default()
+            },
+        ))
+    });
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "hoshika=debug,tower_http=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
+        // ERRORレベルのtracingイベント（アプリ層で分類できなかった予期しないエラー）を
+        // Sentryイベントとして送る。WARN以下は自動的にbreadcrumb扱いになる。
+        .with(sentry::integrations::tracing::layer())
         .init();
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
