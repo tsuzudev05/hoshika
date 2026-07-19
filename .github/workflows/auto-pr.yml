@@ -1,17 +1,13 @@
 name: Auto PR Creator
 
 on:
-  # 手動実行は必ず "Use workflow from: main" を選択すること
+  # 手動実行時、画面上部の "Use workflow from" でPRにしたいブランチを選択する
+  # （head_branch を明示入力した場合はそちらを優先）。マージ先は常に main。
   workflow_dispatch:
     inputs:
       head_branch:
-        description: "PR にするブランチ名（例: feature/test-infra-2-user-repo-test）"
-        required: true
-        type: string
-      base_branch:
-        description: "マージ先ブランチ（デフォルト: main）"
+        description: "PR にするブランチ名（空欄の場合は上の Use workflow from で選択したブランチを使う）"
         required: false
-        default: "main"
         type: string
 
 jobs:
@@ -23,6 +19,7 @@ jobs:
 
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      BASE_BRANCH: main
 
     steps:
       - name: Checkout main (scripts always from main)
@@ -45,7 +42,6 @@ jobs:
       - name: Resolve branch names
         run: |
           echo "HEAD_BRANCH=${{ inputs.head_branch || github.ref_name }}" >> $GITHUB_ENV
-          echo "BASE_BRANCH=${{ inputs.base_branch || 'main' }}"          >> $GITHUB_ENV
 
       - name: Generate diff (vs base branch)
         run: |

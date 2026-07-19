@@ -11,9 +11,10 @@ Usage (GitHub Actions から呼ばれる):
     GROQ_API_KEY   Groq API キー（GitHub Secret に登録）
     GH_PAT         GitHub Personal Access Token（repo スコープ）
     HEAD_BRANCH    PR のブランチ名（github.ref_name）
-    BASE_BRANCH    マージ先ブランチ名（デフォルト: main）
     REPO           "owner/repo" 形式（例: tsuzudev05/rdb-learning-postgres）
     COMMIT_LOG     git log --oneline の出力
+
+マージ先ブランチは常に main 固定（BASE_BRANCH という形での上書きは不可）。
 """
 
 import json
@@ -30,6 +31,8 @@ from groq import Groq
 DIFF_FILE = "diff.txt"
 MAX_DIFF_CHARS = 20_000
 MODEL = "llama-3.3-70b-versatile"
+# マージ先は常に main 固定。ワークフロー側の入力や環境変数では変更できないようにする。
+BASE_BRANCH = "main"
 
 # ─── プロンプト ───────────────────────────────────────────────────────────────
 
@@ -79,7 +82,7 @@ def build_user_prompt(commit_log: str, diff: str) -> str:
 ## コミット一覧
 {commit_log}
 
-## git diff（{os.environ.get("BASE_BRANCH", "main")} との差分）
+## git diff（{BASE_BRANCH} との差分）
 ```diff
 {diff_truncated}
 ```
@@ -158,7 +161,6 @@ def create_pr_via_api(title: str, body: str, head: str, base: str, repo: str) ->
 
 def main() -> None:
     head_branch = os.environ.get("HEAD_BRANCH", "")
-    base_branch = os.environ.get("BASE_BRANCH", "main")
     commit_log = os.environ.get("COMMIT_LOG", "(コミット情報なし)")
     repo = os.environ.get("REPO", "")
 
@@ -183,7 +185,7 @@ def main() -> None:
     title, body = generate_pr_description(commit_log, diff)
     print(f"📝 Title: {title}")
 
-    create_pr_via_api(title, body, head_branch, base_branch, repo)
+    create_pr_via_api(title, body, head_branch, BASE_BRANCH, repo)
 
 
 if __name__ == "__main__":
