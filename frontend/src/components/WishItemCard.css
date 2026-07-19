@@ -35,7 +35,8 @@
 
 .wish-item-card__status--purchased {
   background: #e0e0e0;
-  color: #666;
+  /* #666 は背景とのコントラスト比が4.34で基準(4.5)未達だったため #595959 に変更（約5.3:1） */
+  color: #595959;
 }
 
 .wish-item-card__status--archived {
