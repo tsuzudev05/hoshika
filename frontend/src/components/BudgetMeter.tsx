@@ -67,6 +67,7 @@ export function BudgetMeter() {
       <div
         className="budget-meter__bar"
         role="progressbar"
+        aria-label="予算の使用率"
         aria-valuenow={Math.round(percentUsed)}
         aria-valuemin={0}
         aria-valuemax={100}

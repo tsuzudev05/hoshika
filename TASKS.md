@@ -60,7 +60,20 @@
   - フロントエンド: `@sentry/react`を追加。`VITE_SENTRY_DSN`未設定時は`initSentry()`が何もしない。`Sentry.ErrorBoundary`で`App`全体を包み予期しないレンダリング例外を`ErrorFallback`で表示。`api/client.ts`では status 0（ネットワーク断）・5xx・レスポンス契約違反（`res.ok`なのにbody解析失敗）のみ`Sentry.captureException`し、4xx（バリデーション・未認証・未検出など）は送らない
   - パフォーマンス計測（`tracesSampleRate`等）は別タスクのスコープのため含めていない
   - 動作確認: DBコンテナを一時停止させて`/categories`を叩き、`internal_error()`のERRORログ（`unexpected error: ... database ...`）が出ることを実機で確認。ダミーDSNを設定してもバックエンド起動が壊れないことも確認。`cargo fmt`/`clippy`/`test`（101件）、フロントエンドの`type-check`/`lint`/`test`（38件）/`build`、`npm run test:e2e`（実ブラウザ・5シナリオ）が全て通過することを確認　完了（2026-07-18）
-- [ ] **パフォーマンス計測** — Lighthouse・DBクエリ最適化
+- [x] **パフォーマンス計測** — Lighthouse・DBクエリ最適化
+  - DBクエリ最適化: 隔離したPostgresコンテナに20,000件規模の合成データ（1ユーザーに偏らせたものと均等分散の両方）を投入し、`EXPLAIN (ANALYZE, BUFFERS)`と`pg_stat_user_indexes`で実クエリのインデックス使用状況を計測（`migrations/20260719000001_optimize_indexes.sql`）
+    - `idx_wish_items_status`を削除 — ステータス絞り込みは全てフロントエンド側で行っており、該当カラムをWHEREするクエリが存在しない。実際にAPI経由で20回`GET /wish-items`を叩いても`idx_scan`が0のままだったことを確認
+    - `idx_budgets_user_id`を削除 — `UNIQUE(user_id, year, month)`制約のインデックスが同じ列を先頭に持つため、`user_id`単体の絞り込みも含めて完全に重複していることを`EXPLAIN`で確認
+    - `idx_purchase_records_user_id`を削除 — この列を使う`PostgresPurchaseRecordRepository::find_by_id`はどのユースケースからも呼ばれておらず（実際の呼び出し経路は`save()`のみ）、対応するクエリ自体が実行されない
+    - 逆に「効きそうで効かなかった」例として`wish_items(user_id, added_at)`の複合インデックス追加を検証したが、`find_all`にLIMITが無いため実行計画は複合インデックスがあってもBitmap Heap Scan+明示的Sortを選び続け、実測上の優位が確認できなかったため追加を見送った（測定に基づき「やらない」判断をした記録として残す）
+    - `idx_wish_items_category_id`・`idx_purchase_records_budget_id`/`wish_item_id`は現在の参照クエリでは使われていないが、外部キー列として被参照側の削除時の整合性チェック（テーブル全体スキャン回避）に効くため残した
+    - 変更後、`cargo test`（101件）・`npm run test:e2e`（実ブラウザ・5シナリオ）が通過することを確認
+  - Lighthouse: `npx lighthouse`（プロジェクトの永続的な依存には追加せず一時実行 — `lighthouse`パッケージは`@sentry/node`経由で多数の脆弱な`@opentelemetry/*`依存を引き込むため）で、`STATIC_DIR`による本番相当の配信（Fly.ioデプロイ準備タスクで実装済み）に対して計測
+    - 初回スコア: Performance 90 / Accessibility 91 / Best Practices 96 / SEO 90
+    - 発見した実バグを修正: ①`index.html`が存在しない`/vite.svg`を参照し404していた（削除しても`<link>`が無いとブラウザが暗黙に`/favicon.ico`を要求し404が再発するため、インラインdata URIのfaviconに置き換え） ②`WishItemCard`の「購入済み」バッジの文字色`#666`が背景`#e0e0e0`とのコントラスト比4.34で基準(4.5)未達 → `#595959`（約5.3:1）に変更 ③`BudgetMeter`の`role="progressbar"`要素に`aria-label`が無かった ④`<main>`ランドマークが無かった（`App.tsx`の外側`div`を`main`に変更） ⑤`<meta name="description">`が無かった
+    - 修正後スコア: Performance 93 / Accessibility 100 / Best Practices 100 / SEO 100
+    - 未修正のまま残した項目: CLS（0.13）は`WishItemList`/`BudgetMeter`のローディングスピナー→データ表示切り替えに起因。根本修正にはスケルトンローダーの実装が必要な規模のため今回は見送り、原因の特定までを記録
+    - 修正後、フロントエンドの`type-check`/`lint`/`test`（38件）・`npm run test:e2e`（実ブラウザ・5シナリオ）が通過することを確認　完了（2026-07-19）
 - [ ] ✅ チェックポイント: 「新機能を追加するとき、どのレイヤーを触るか迷わないか？」
 
 ### 学習（並行）
