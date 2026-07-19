@@ -1,0 +1,68 @@
+# Tasks · Phase 05 完了記録
+
+## Phase 05 · 品質・インフラ　✅ 完了（2026-07-19）
+
+> **このフェーズで学ぶこと**: 設計の良さはテストカバレッジと変更のしやすさで測る
+
+> Fly.ioデプロイ（ステージング環境・自動デプロイ）は従量課金の発生条件を精査してから着手判断したいため保留中。[TASKS.md](./TASKS.md) の Active セクションに残し、この完了記録には含めていない。
+
+- [x] **E2Eテスト（Playwright）** — 主要フローをカバー
+  - [x] テスト基盤導入 — `frontend/playwright.config.ts`（Vite開発サーバー自動起動、baseURL `http://localhost:5173`）
+  - [x] 追加 → 一覧表示のフロー — `wish-item-flow.spec.ts`
+  - [x] レビュー「欲しい」→ステータス遷移（`Inbox` → `NextToBuy`）のフロー
+  - [x] カテゴリフィルターの絞り込みフロー
+  - [x] レビュー「やめておく」→ステータス遷移（`Inbox` → `Archived`）のフロー　完了（2026-07-10）
+  - [x] `@playwright/test` の依存追加・`npm run test:e2e` スクリプト整備 — DevContainer内で `npm install` を実行し `package-lock.json` を同期。手順を[DEVELOPMENT.md](./DEVELOPMENT.md#フロントエンドのe2eテストplaywright)に明記　完了（2026-07-10）
+  - [x] テストデータのクリーンアップ — `addWishItem`ヘルパーが追加完了を待たずに次の入力を始めていた競合バグを修正。また削除APIがまだ無いため、`e2e/global-teardown.ts` で`DATABASE_URL`に直接接続し`name LIKE 'E2E%'`の行をテスト終了後に削除するようにした　完了（2026-07-10）
+  - [x] 予算メーターのE2Eフロー（予算設定〜超過表示）— `予算メーター`の`describe`ブロックを追加。予算未設定/設定済みの両パターンで金額を設定し、予算超過商品を購入して「予算超過」バッジと残高表示を確認する
+    - 予算は年月ごとに1件のシングルトンで`E2E`接頭辞による隔離ができないため、`beforeAll`で当月予算行を退避し`afterAll`で復元（未設定だった場合は行ごと削除）することでDevContainerの開発用DBへの影響を残さないようにした
+    - `global-teardown.ts`が`purchase_records`を残したまま`wish_items`を削除しようとして外部キー制約違反で失敗するバグを発見・修正（`purchase_records`を先に削除してから`wish_items`を削除するよう変更）
+    - DB直結処理を`e2e/db.ts`（`runSql`/`querySql`）に共通化し、`global-teardown.ts`と予算テストの両方から利用。psqlへの接続情報もPG*環境変数5つの組み立てから、パスワードを除いた接続URL+`PGPASSWORD`のみに簡素化した
+    - DevContainer内（`cargo run`でバックエンド起動 + `npx playwright install-deps chromium`でOS依存関係導入）で全5シナリオが通過し、連続2回実行してもDBが恒久的に変化しないことを確認　完了（2026-07-15）
+  - [x] CI（`.github/workflows/frontend.yml`）への組み込み — 既存の`check`ジョブとは独立した`e2e`ジョブを追加。`postgres:16-alpine`のサービスコンテナ、`cargo build`でのバックエンドビルド、ヘルスチェック付きの起動待ち、`playwright install --with-deps`、`npm run test:e2e`を実行し、失敗時は`test-results/`とバックエンドログをアーティファクト/ログ出力する
+    - バックエンドは`sqlx::migrate!`で起動時に自動マイグレーションするため（`src/main.rs`）、`rust.yml`と違い事前の`sqlx migrate run`は不要
+    - 全く空の新規Postgresコンテナに対してビルド済みバイナリを起動し`npm run test:e2e`を実行する形でCI環境を再現して検証。その過程で、予算が未設定のまま`afterAll`が`budgets`行を削除しようとすると`purchase_records`の外部キー制約（`purchase_records_budget_id_fkey`）違反になるバグを発見し、`deleteE2EPurchaseRecords()`を`budgets`の復元・削除より先に呼ぶよう修正（`e2e/db.ts`に`deleteE2EPurchaseRecords`/`deleteE2EWishItems`として共通化し`global-teardown.ts`とテスト双方から利用）
+    - 修正後、予算未設定/設定済みの両パターンで全5シナリオが通過し、DBが実行前の状態に正しく復元されることを確認　完了（2026-07-16）
+- [x] **予算設定UI** — 月次予算を登録・更新できるフォームを追加
+  - バックエンド: `POST /budgets`（`SetBudgetUseCase` / `budgets::set_budget` ハンドラー）を新規実装。年月の予算が未設定なら新規作成、既存なら金額を更新する（`Budget::update_amount` で残高を差分調整し、既に記録された購入の影響を失わないようにした）
+  - フロントエンド: `SetBudgetForm` コンポーネントを追加し `BudgetMeter` と連携。予算未設定時（404）はその場でフォームを表示、設定済みのときは「予算を編集」から更新できる
+  - ドメイン層テスト4件・ユースケーステスト5件・フロントエンドコンポーネントテスト9件を追加、全て通過（`cargo test` 81件 / フロントエンド33件）
+  - 実機（ブラウザ）で新規作成・更新の両フローを確認。確認中にバックエンドのルート未反映（プロセス再起動漏れ）に気づき再起動して解消　完了（2026-07-12）
+- [x] **購入記録機能**（`NextToBuy` → `Purchased`）
+  - バックエンド: `PurchaseRecordRepository`（InMemory / Postgres 実装）を新規追加し、`PurchaseWishItemUseCase` で `WishItem::purchase()` → 当月の `Budget::record_purchase()` → `PurchaseRecord` 保存の一連の流れをつなぐ。`POST /wish-items/:id/purchase` を追加
+    - 実支払額はフォームで入力させる方式を採用（希望価格をデフォルト値として表示しつつ編集可能。README記載の「希望価格と実支払額は独立」というドメインルールに合わせた）
+    - 予算は購入時点の当月固定。当月の予算が未設定の場合は`BudgetNotFound`エラー（422）を返す
+    - 予算超過は`Budget.record_purchase()`が許容する既存のドメイン仕様どおり許可し、`BudgetMeter`の「予算超過」バッジで事後的に可視化する方針（確認ダイアログなどのブロッキングは入れない）
+  - フロントエンド: `WishItemCard`に`NextToBuy`ステータス時のみ「購入済みにする」ボタンを追加。クリックすると実支払額（希望価格をデフォルト値に）・メモの入力フォームが開く。送信成功時は`wish-items`・`budget-status`両方のクエリを無効化しBudgetMeterも連動して更新
+  - ドメイン層テスト（`update_amount`系4件は既存）・ユースケーステスト6件・インメモリリポジトリテスト3件・フロントエンドコンポーネントテスト5件を追加、全て通過（`cargo test` 91件 / フロントエンド38件）
+  - 実機（ブラウザ）で購入フロー（希望価格のデフォルト表示・実支払額での予算差し引き・`purchase_records`への記録・予算超過バッジ表示）を確認　完了（2026-07-12）
+- [x] **セキュリティ確認** — CORS・SQLインジェクション・認証周りの確認
+  - CORS: 未設定だがVite devプロキシ（`/api`→`localhost:3000`）によりブラウザからは同一オリジン扱いのため実害なし。本番で別オリジン配信する場合は要検討として保留
+  - SQLインジェクション: 全リポジトリでsqlxのbind変数を使用しており問題なし。`postgres_wish_item_repository.rs`に`format!`でSQLを組み立てる箇所があるが埋め込むのは固定の定数文字列のみで安全
+  - 認証・認可: `POST /auth/token`が無認証で任意`user_id`のJWTを発行でき、かつ発行したJWTを検証するミドルウェアがどの業務エンドポイントにも適用されておらず、`/wish-items`等が誰でも無認証で読み書き可能な状態だったバグを発見
+    - `src/presentation/auth_middleware.rs`を新規追加し、`router.rs`で業務エンドポイント（`/wish-items`系・`/categories`・`/budgets`系）のみを`route_layer`でJWT検証必須にした（`/health`・`/auth/token`・`/auth/verify`は引き続き未認証でアクセス可）
+    - ユーザーごとのデータ分離（`user_id`列の追加）は大規模変更になるため今回はスコープ外とし、「有効なJWTがなければアクセス不可」という最低限の閂のみを閉じた
+    - フロントエンドが一切トークンを送信していなかったため`frontend/src/api/auth.ts`を新規追加し、起動時に固定`user_id`（`hoshika-app`）で`/auth/token`を取得・キャッシュして`apiClient`の全リクエストに`Authorization`ヘッダーを付与するよう変更。MSWの既定ハンドラーにもトークン取得のモックを追加
+    - バックエンド単体テスト91件・フロントエンド38件が全て通過し、実際にバックエンドとフロントを起動して未トークン時401・トークン付き200を確認。`npm run test:e2e`（実ブラウザ）でも全5シナリオが新しい認証フローで通過することを確認　完了（2026-07-17）
+- [x] **Sentry導入** — エラートラッキング（アプリ層とインフラ層でのエラー分類も意識）
+  - バックエンド: `sentry`クレート（`sentry-tracing`統合込み、`rustls`/`reqwest`トランスポート）を追加。`SENTRY_DSN`未設定時は`sentry::init`自体を呼ばずcapture系呼び出しが自動でno-opになる設計にし、ローカル/CIでは分岐なしで無効化される
+  - エラー分類: 各ハンドラーの「どの業務エラーにも当てはまらない`Err(e)`」の受け皿（＝リポジトリ層の`Unexpected`など、インフラ層由来で分類しようがないエラー）だけを`src/presentation/handlers/mod.rs`の`internal_error()`に集約し、`tracing::error!`でログ。`sentry::integrations::tracing::layer()`がERRORレベルのログをSentryイベントとして送るため、404/422等のドメイン上想定済みのエラーはSentryに一切飛ばない
+  - フロントエンド: `@sentry/react`を追加。`VITE_SENTRY_DSN`未設定時は`initSentry()`が何もしない。`Sentry.ErrorBoundary`で`App`全体を包み予期しないレンダリング例外を`ErrorFallback`で表示。`api/client.ts`では status 0（ネットワーク断）・5xx・レスポンス契約違反（`res.ok`なのにbody解析失敗）のみ`Sentry.captureException`し、4xx（バリデーション・未認証・未検出など）は送らない
+  - パフォーマンス計測（`tracesSampleRate`等）は別タスクのスコープのため含めていない
+  - 動作確認: DBコンテナを一時停止させて`/categories`を叩き、`internal_error()`のERRORログ（`unexpected error: ... database ...`）が出ることを実機で確認。ダミーDSNを設定してもバックエンド起動が壊れないことも確認。`cargo fmt`/`clippy`/`test`（101件）、フロントエンドの`type-check`/`lint`/`test`（38件）/`build`、`npm run test:e2e`（実ブラウザ・5シナリオ）が全て通過することを確認　完了（2026-07-18）
+- [x] **パフォーマンス計測** — Lighthouse・DBクエリ最適化
+  - DBクエリ最適化: 隔離したPostgresコンテナに20,000件規模の合成データ（1ユーザーに偏らせたものと均等分散の両方）を投入し、`EXPLAIN (ANALYZE, BUFFERS)`と`pg_stat_user_indexes`で実クエリのインデックス使用状況を計測（`migrations/20260719000001_optimize_indexes.sql`）
+    - `idx_wish_items_status`を削除 — ステータス絞り込みは全てフロントエンド側で行っており、該当カラムをWHEREするクエリが存在しない。実際にAPI経由で20回`GET /wish-items`を叩いても`idx_scan`が0のままだったことを確認
+    - `idx_budgets_user_id`を削除 — `UNIQUE(user_id, year, month)`制約のインデックスが同じ列を先頭に持つため、`user_id`単体の絞り込みも含めて完全に重複していることを`EXPLAIN`で確認
+    - `idx_purchase_records_user_id`を削除 — この列を使う`PostgresPurchaseRecordRepository::find_by_id`はどのユースケースからも呼ばれておらず（実際の呼び出し経路は`save()`のみ）、対応するクエリ自体が実行されない
+    - 逆に「効きそうで効かなかった」例として`wish_items(user_id, added_at)`の複合インデックス追加を検証したが、`find_all`にLIMITが無いため実行計画は複合インデックスがあってもBitmap Heap Scan+明示的Sortを選び続け、実測上の優位が確認できなかったため追加を見送った（測定に基づき「やらない」判断をした記録として残す）
+    - `idx_wish_items_category_id`・`idx_purchase_records_budget_id`/`wish_item_id`は現在の参照クエリでは使われていないが、外部キー列として被参照側の削除時の整合性チェック（テーブル全体スキャン回避）に効くため残した
+    - 変更後、`cargo test`（101件）・`npm run test:e2e`（実ブラウザ・5シナリオ）が通過することを確認
+  - Lighthouse: `npx lighthouse`（プロジェクトの永続的な依存には追加せず一時実行 — `lighthouse`パッケージは`@sentry/node`経由で多数の脆弱な`@opentelemetry/*`依存を引き込むため）で、`STATIC_DIR`による本番相当の配信（Fly.ioデプロイ準備タスクで実装済み）に対して計測
+    - 初回スコア: Performance 90 / Accessibility 91 / Best Practices 96 / SEO 90
+    - 発見した実バグを修正: ①`index.html`が存在しない`/vite.svg`を参照し404していた（削除しても`<link>`が無いとブラウザが暗黙に`/favicon.ico`を要求し404が再発するため、インラインdata URIのfaviconに置き換え） ②`WishItemCard`の「購入済み」バッジの文字色`#666`が背景`#e0e0e0`とのコントラスト比4.34で基準(4.5)未達 → `#595959`（約5.3:1）に変更 ③`BudgetMeter`の`role="progressbar"`要素に`aria-label`が無かった ④`<main>`ランドマークが無かった（`App.tsx`の外側`div`を`main`に変更） ⑤`<meta name="description">`が無かった
+    - 修正後スコア: Performance 93 / Accessibility 100 / Best Practices 100 / SEO 100
+    - 未修正のまま残した項目: CLS（0.13）は`WishItemList`/`BudgetMeter`のローディングスピナー→データ表示切り替えに起因。根本修正にはスケルトンローダーの実装が必要な規模のため今回は見送り、原因の特定までを記録
+    - 修正後、フロントエンドの`type-check`/`lint`/`test`（38件）・`npm run test:e2e`（実ブラウザ・5シナリオ）が通過することを確認　完了（2026-07-19）
+- [x] ✅ チェックポイント: 「新機能を追加するとき、どのレイヤーを触るか迷わないか？」
+  - 本フェーズを通じて、機能追加時にどのレイヤーを触るかで迷う場面はなかった。ドメイン層（`WishItem`/`Budget`の不変条件）・ユースケース層（手順）・インフラ層（Postgres実装）・プレゼンテーション層（ハンドラー/ミドルウェア）の境界が明確になっていたため、認証ミドルウェアの追加やDBインデックス最適化のような横断的な変更でも、既存レイヤーの責務を壊さずに実装できた　完了（2026-07-19）
