@@ -18,6 +18,23 @@
 
 ---
 
+## アーキテクチャ概要（30秒で把握する）
+
+詳細に入る前に、全体像を一枚で。
+
+| 観点 | 内容 |
+|---|---|
+| **何をするアプリか** | 欲しいものを即買いせず、一度Inboxに入れてレビューを挟んでから買う。予算と連動して超過を可視化する |
+| **境界づけられたコンテキスト** | 欲しいもの(WishList) / 衝動買い防止(ImpulsePrevention) / 予算管理(Budget) の3つ。詳細は[バウンデッドコンテキスト](#バウンデッドコンテキスト) |
+| **レイヤー構成** | `Presentation → Application → Domain ← Infrastructure`。依存は常にDomainへ内向き（詳細は[設計思想](#設計思想)） |
+| **バックエンド** | Rust（Axum + SQLx、実行時クエリチェック）。DDD戦術パターン（Entity/Value Object/Repository trait）で実装 |
+| **フロントエンド** | React + TypeScript（Vite + TanStack Query）。APIエラーは`ApiError`で型付けし、想定内(4xx)/想定外(5xx)を呼び分ける |
+| **DB** | PostgreSQL。マイグレーションは起動時に自動適用（`sqlx::migrate!`） |
+| **品質・運用** | Playwright E2E（5シナリオ）・Sentry（インフラ層エラーのみ通知）・CI（Rust/Frontend/E2E）・Lighthouse計測済み |
+| **現状のスコープ外** | ユーザー登録・ログイン画面（JWTは`user_id`を渡せば発行できる簡易実装）、本番デプロイ（Fly.io設定は準備済みだが未実行） |
+
+---
+
 ## Glossary（ユビキタス言語）
 
 このプロジェクトで使う言葉を統一する。コード・会話・ドキュメントすべてでこの用語を使う。
@@ -159,24 +176,169 @@ Infrastructure（SQLx / 外部API）
 | **Infrastructure** | 外部システムとの接続 | Repository impl（SQLx）, 外部APIクライアント |
 | **Presentation** | HTTPの入出力 | Handler（薄いラッパーのみ）, Request/Response型 |
 
+### リクエストの流れ（具体例: 購入を記録する）
+
+抽象的な依存方向の図だけだと実感が湧きにくいため、実際のエンドポイント
+`POST /wish-items/:id/purchase` を例に、1リクエストが各レイヤーをどう通過するかを示す。
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant P as Presentation<br/>wish_items::purchase_wish_item
+    participant A as Application<br/>PurchaseWishItemUseCase
+    participant D as Domain<br/>WishItem / Budget
+    participant I as Infrastructure<br/>Postgres*Repository
+
+    C->>P: POST /wish-items/:id/purchase<br/>{actual_price, memo}
+    P->>A: execute(user_id, id, actual_price, memo)
+    A->>I: wish_item_repo.find_by_id(user_id, id)
+    I-->>A: WishItem
+    A->>D: item.purchase()
+    D-->>A: Ok（ステータス: Purchased）
+    A->>I: budget_repo.find_by_year_month(user_id, 当月)
+    I-->>A: Budget
+    A->>D: budget.record_purchase(actual_price)
+    D-->>A: Ok / BudgetExceededイベントを含むことも
+    A->>I: wish_item_repo.save(item)
+    A->>I: budget_repo.save(budget)
+    A->>I: purchase_record_repo.save(record)
+    A-->>P: Ok(())
+    P-->>C: 200 OK
+```
+
+**このフローから読み取れる依存の向き:**
+- `PurchaseWishItemUseCase`（Application）は`WishItemRepository` / `BudgetRepository`という**Domain層で定義されたtrait**越しにしかInfrastructureを知らない。実装（Postgres版・InMemory版どちらか）はDIで注入される
+- 予算超過の判定（`record_purchase`が返す`BudgetExceeded`イベント）はDomain層の責務。Presentation層はそれを見て何かを止めたりはしない（後述のトレードオフ参照）
+- Handlerは`execute()`の結果をHTTPステータスに変換するだけで、ビジネスロジックを持たない
+
+---
+
+## 設計判断とトレードオフ
+
+実装を進める中で下した、後から見て「なぜそうしたか」が自明ではない判断を記録する。
+DB設計に閉じたトレードオフ（ENUM採用理由・balanceを都度計算しない理由など）は
+[db-design.md](./db-design.md#設計上のトレードオフと判断)を参照。
+
+### 予算超過はブロックしない、事後に可視化するだけ
+
+`Budget.record_purchase()`は残高がマイナスになる購入も**許可**し、`BudgetExceeded`イベントを返すのみで
+処理自体は止めない。フロントエンドは`BudgetMeter`の「予算超過」バッジで事後的に警告する。
+
+**なぜ**: 「予算超過を確認ダイアログでブロックする」という実装も検討したが、それは
+「衝動買い防止のドメインルール」（Inbox→レビュー→NextToBuyという回り道を強制する）とは別のレイヤーの話。
+一度NextToBuyまでレビューを経た買い物を土壇場のダイアログで止めるのは、ドメインが既に許可した行動を
+UIが横から覆すことになり一貫しない。「買ってよいかどうか」はレビューの時点で既に判断済み、という設計。
+
+### 認可は「有効なJWTを持つか」の一点のみ（ユーザー間データ分離は別の粒度）
+
+`require_auth`ミドルウェアは有効なJWTを検証するだけで、`wish_items`等の`user_id`列によるデータの絞り込みは
+各リポジトリのクエリ（`WHERE user_id = $1`）に委ねている。「認証済みなら誰でも良い」わけではなく行を
+跨いだアクセスはできないが、複数ユーザーが同じJWT発行エンドポイントを使える設計（`user_id`を渡せば誰でも
+発行できる）である点は本番導入前に見直しが必要な既知の制約。
+
+**なぜ**: 元々は認証・認可の機構が一切無く（誰でも全ユーザーのデータを読み書きできた）、これを
+「有効なJWTが無ければ何もできない」状態にすることが最優先だった（[TASKS-phase05.md](./TASKS-phase05.md)の
+セキュリティ確認で発見・修正）。真の認証（パスワード等によるログイン）とユーザー登録フローの実装は
+アプリの利用シーンがまだ単一ユーザー（自分専用）である現段階ではスコープ外とし、"閂を閉める"ことを優先した。
+
+### DomainEventは生成されるが、まだ誰も購読していない
+
+`src/domain/events/`の`DomainEvent`列挙型はEntityのメソッド（`WishItem::add()`など）が確かに生成するが、
+Application層のUse Caseは受け取った`events`をそのまま`_events`として握りつぶしている
+（例: `add_wish_item.rs`）。イベントバスや購読者はまだ存在しない。
+
+**なぜこのままにしているか**: 「起きたことを型で表現する」という設計自体は早期に固めておく価値がある
+（テストでもイベントの発生を検証できる）一方、パブリッシュ先（ロギング・Sentryへの連携・将来の通知機能など）
+が今のスコープに無いのに配線だけ先に作ると、動作確認できない配線が増えるだけになる。**「モデルとして存在する
+ことに価値がある」フェーズと「実際に配線する」フェーズを分けている**、という意図的な未完成。
+
+### Sentryに送るエラーはインフラ層由来のものだけに絞る
+
+`src/presentation/handlers/mod.rs`の`internal_error()`は、各ハンドラーで個別に分類されなかった
+「その他のエラー」だけを受け取ってSentryに送る。404（見つからない）・422（ドメインルール違反）は
+各ハンドラーが個別に判定してSentryを経由させない。
+
+**なぜ**: Sentryは「コードのバグ・インフラ障害」を知らせる場所であるべきで、「ユーザーが存在しないIDを
+指定した」「予算未設定のまま購入しようとした」のようなドメイン上ありふれた出来事まで通知されると、
+本当に見るべきアラートが埋もれる。アプリ層（想定内のエラー）とインフラ層（想定外のエラー）を
+HTTPステータスコードの選択そのものに一致させ、実装を分岐させずに自然と分類されるようにした。
+
+### インデックスは「足りないものを足す」だけでなく「実測して要らないものを消す」
+
+`migrations/20260719000001_optimize_indexes.sql`では、20,000件規模の合成データで
+`EXPLAIN ANALYZE`・`pg_stat_user_indexes`を使い、実際にどのクエリからも使われていないインデックスを
+3つ削除した。逆に「効きそうな」複合インデックス（`wish_items(user_id, added_at)`）は追加を検討したが、
+該当クエリにLIMITが無いため実行計画上のメリットが実測で確認できず、追加を**見送った**。
+
+**なぜ**: 「インデックスを足す」ことだけが最適化ではない。使われないインデックスは書き込みのたびに
+維持コストだけを払い続ける。「教科書的に良さそうな変更」を実測せずに入れることも、逆に必要な変更を
+怠ることも同じくらい避けたい失敗として扱った（詳細は[TASKS-phase05.md](./TASKS-phase05.md)参照）。
+
+### `sqlx::query!`系のコンパイル時チェックマクロを使わない
+
+全リポジトリで`sqlx::query()`（実行時チェック）のみを使い、SQLをコンパイル時にDBへ問い合わせて検証する
+`sqlx::query!`マクロは採用していない。
+
+**なぜ**: `query!`系マクロは型安全性が上がる代わりに、**ビルドのたびに稼働中のDBへの接続**（または
+事前生成した`.sqlx`オフラインキャッシュの同期）が要る。これを避けたことで、`cargo build`もDockerの
+マルチステージビルドも「DB無しで通る」（`Dockerfile`にもその旨をコメントしてある）。CI・本番ビルド環境の
+構成をシンプルに保つ方を、コンパイル時のSQL検証より優先した。将来クエリが複雑化して型安全性の恩恵が
+上回ると判断すれば、リポジトリ単位で乗り換えることもできる（Repository trait越しなので影響範囲は局所化される）。
+
+### テスト用にInMemory実装を用意し、Postgres実装とテストの層を分離する
+
+各Repository traitには`Postgres*Repository`（本番用）と`InMemory*Repository`（テスト用）の2実装がある。
+ドメイン層・アプリケーション層のユニットテストは全てInMemory版に対して書かれ、実DBを一切必要としない
+（`cargo test`がDB無しで完結する理由）。
+
+**なぜ**: Repository traitに依存させる（依存逆転）ことの実利がここに出る。「DBが無いと動かないテスト」は
+実行が遅く・CIの構成が重くなり・失敗時にDB起因かロジック起因か切り分けにくい。InMemory実装を型で揃えることで
+ユースケースのロジックだけを高速に検証できる一方、Postgres実装固有の挙動（SQL文法・型変換・制約違反）は
+別途E2Eテストや実機確認で担保する、という役割分担にしている。
+
+### Categoryは固定シードデータのみで、動的な追加・削除APIを持たない
+
+`CategoryRepository`trait は `find_all` / `find_by_id` のみで `save` / `delete` が無い。カテゴリは
+マイグレーションで投入した4件（書籍・ガジェット・ファッション・その他）固定で、ユーザーが増減できない。
+
+**なぜ**: カテゴリ管理UIを作る工数に対して、今のスコープ（自分専用の欲しいものリスト）では固定の
+少数カテゴリで十分に用が足りる。中途半端なCRUDを持つより「今は固定」と明言した方が、将来
+本当に必要になったとき（＝複数ユーザー・カテゴリのカスタマイズ要望が出たとき）に正しく設計し直せる。
+
+### CORSは未設定のまま許容している（本番で単一オリジン配信する前提に依存）
+
+Axum側にCORSミドルウェアの設定が無い。Viteの開発プロキシ（`/api`→`localhost:3000`）によりローカルでは
+同一オリジン扱いになり、本番も`STATIC_DIR`でフロントエンドとAPIを同一オリジンから配信する構成のため、
+現状は実害が無い。
+
+**なぜ据え置きか**: CORSの設定は「どのオリジンからのアクセスを許可するか」というデプロイ構成に強く依存する
+判断で、フロントエンドを別オリジン（別ドメイン・別ホスティング）に切り離す予定が無い限り先回りして
+設定する意味が薄い。単一オリジン構成をやめる決定をした時点で、その時のオリジンに合わせて追加すべき
+項目として意図的に保留している（[TASKS-phase05.md](./TASKS-phase05.md)のセキュリティ確認で検討済み）。
+
 ---
 
 ## API エンドポイント
 
 `src/presentation/router.rs` で定義されている現在のAPI。すべてのエラーレスポンスは `{"error": string}` 形式。
+ローカル/CIではAPIはルート直下で動くが、本番（`STATIC_DIR`設定時）はフロントエンドの静的配信と同居するため
+`/api` 配下にネストされる（例: `/wish-items` → `/api/wish-items`。詳細は[DEVELOPMENT.md](./DEVELOPMENT.md#デプロイflyio)）。
 
-| メソッド | パス | 概要 |
-|---|---|---|
-| `GET` | `/health` | ヘルスチェック |
-| `POST` | `/auth/token` | `user_id` からJWTを発行 |
-| `GET` | `/auth/verify` | `Authorization: Bearer <token>` を検証 |
-| `GET` | `/wish-items` | 欲しいもの一覧を取得 |
-| `POST` | `/wish-items` | 欲しいものを追加（`Inbox` ステータスで登録） |
-| `POST` | `/wish-items/:id/review` | レビューしてステータス遷移（`still_want: true/false`） |
-| `GET` | `/categories` | カテゴリ一覧を取得（欲しいもの追加時の選択肢） |
-| `GET` | `/budgets/status?year=&month=` | 指定年月の予算・残高・超過有無を取得 |
+| メソッド | パス | 認証 | 概要 |
+|---|---|---|---|
+| `GET` | `/health` | 不要 | ヘルスチェック |
+| `POST` | `/auth/token` | 不要 | `user_id` からJWTを発行（本番では認証後にのみ呼ぶ想定。現状は`user_id`を渡せば誰でも発行できる） |
+| `GET` | `/auth/verify` | 不要 | `Authorization: Bearer <token>` を検証 |
+| `GET` | `/wish-items` | 必須 | 欲しいもの一覧を取得（自分の`user_id`分のみ） |
+| `POST` | `/wish-items` | 必須 | 欲しいものを追加（`Inbox` ステータスで登録） |
+| `POST` | `/wish-items/:id/review` | 必須 | レビューしてステータス遷移（`still_want: true/false`） |
+| `POST` | `/wish-items/:id/purchase` | 必須 | 購入済みにする（`actual_price`・`memo`を受け取り、当月予算から差し引く） |
+| `GET` | `/categories` | 必須 | カテゴリ一覧を取得（欲しいもの追加時の選択肢） |
+| `GET` | `/budgets/status?year=&month=` | 必須 | 指定年月の予算・残高・超過有無を取得 |
+| `POST` | `/budgets` | 必須 | 指定年月の予算を新規作成/更新する |
 
-フロントエンドからは `frontend/src/api/` 配下の関数（`wishItems.ts` / `budgets.ts` / `categories.ts`）経由でのみ呼び出す。
+「必須」のエンドポイントは`Authorization: Bearer <token>`が無い、または無効なら401を返す（`src/presentation/auth_middleware.rs`）。
+フロントエンドからは `frontend/src/api/` 配下の関数（`wishItems.ts` / `budgets.ts` / `categories.ts` / `auth.ts`）経由でのみ呼び出す。
 
 ---
 
