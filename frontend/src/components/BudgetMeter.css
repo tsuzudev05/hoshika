@@ -67,21 +67,6 @@
   margin-bottom: 1rem;
 }
 
-.budget-meter__spinner {
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid #ccc;
-  border-top-color: #333;
-  border-radius: 50%;
-  animation: budget-meter-spin 0.8s linear infinite;
-}
-
-@keyframes budget-meter-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .budget-meter__error {
   color: #b00020;
   margin-bottom: 1rem;
