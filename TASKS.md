@@ -19,7 +19,11 @@
   - 新しく追加されたWishItemCard・購入フォームの表示にフェードインアニメーションを追加（既存カードはキー据え置きで再アニメーションしないことを確認）
   - `prefers-reduced-motion: reduce`に対応（アニメーション低減希望のユーザー向けに全トランジション/アニメーションを実質無効化。状態を伝えるスピナーの回転のみ維持）
   - 変更後、フロントエンドの`type-check`/`lint`/`test`（38件）・`npm run test:e2e`（実ブラウザ・5シナリオ）が通過することを確認。実際にVite開発サーバーで「追加する」ボタンのリクエストを意図的に遅延させてスクリーンショットを撮り、処理中表示が意図通り見えることを目視確認　完了（2026-07-23）
-- [ ] **PWA対応** — マニフェスト・Service Worker
+- [x] **PWA対応** — マニフェスト・Service Worker
+  - `frontend/public/manifest.webmanifest`を追加し`index.html`から参照。アイコンは既存のfaviconと同じ⭐デザインのSVG（`icon.svg`）のみを用意。この環境にPNG変換ツール（ImageMagick等）が無いため複数解像度のPNGは用意できておらず、Android/Chromeのインストール可否には影響しないが、iOSのホーム画面追加はSVGを読めないため`apple-touch-icon`を別途用意する場合は今後PNG化が必要
+  - Service Workerは`vite-plugin-pwa`等のビルド連携プラグインを使わず`frontend/public/sw.js`を手書き。Viteがハッシュ付与する`/assets/`配下はcache-first、HTMLナビゲーションはnetwork-first（オフライン時のみキャッシュへフォールバック）とし、`/api/`配下は一切キャッシュ対象外にして認証・鮮度が必要なAPIレスポンスがキャッシュされないようにした
+  - 開発サーバー（Vite HMR）でキャッシュが介入しないよう、`registerServiceWorker()`は`import.meta.env.PROD`の時のみ登録するようにした
+  - `npm run build`後、`npm run preview`で配信しPlaywrightで実機確認：Service Workerが`activated`状態になること、オンラインで一度ロードしてキャッシュを温めた後にオフラインへ切り替えて再読み込みしてもアプリシェル（タイトル・スケルトン表示）が表示されることを確認。API依存部分はオフラインでは意図通り「読み込み中」のまま止まる（SWがAPIをキャッシュしないため、偽のデータを見せない設計）。`type-check`/`lint`/`test`（38件）/`build`もすべて通過　完了（2026-07-28）
 - [x] **README整備** — なぜこの設計にしたか・トレードオフ・アーキテクチャ図を書く
   - APIエンドポイント表が実装（購入記録・予算設定エンドポイント、JWT認証の要否、本番`/api`プレフィックス）に追いついていなかったため更新
   - 「リクエストの流れ」としてPOST `/wish-items/:id/purchase`を例にしたシーケンス図（Mermaid）を追加し、抽象的な依存方向の図だけでは伝わらない「実際に1リクエストが各レイヤーをどう通るか」を可視化
