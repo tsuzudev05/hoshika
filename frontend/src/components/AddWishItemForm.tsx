@@ -57,7 +57,7 @@ export function AddWishItemForm() {
   if (categoriesQuery.isPending) {
     return (
       <div className="add-wish-item-form__status" role="status" aria-live="polite">
-        <span className="add-wish-item-form__spinner" aria-hidden="true" />
+        <span className="spinner" aria-hidden="true" />
         <span>読み込み中...</span>
       </div>
     )
@@ -129,7 +129,14 @@ export function AddWishItemForm() {
       </label>
 
       <button type="submit" disabled={addMutation.isPending}>
-        追加する
+        {addMutation.isPending ? (
+          <span className="button__pending">
+            <span className="spinner" aria-hidden="true" />
+            <span>追加中...</span>
+          </span>
+        ) : (
+          '追加する'
+        )}
       </button>
 
       {formError && <p className="add-wish-item-form__error">{formError}</p>}

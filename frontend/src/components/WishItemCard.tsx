@@ -83,6 +83,7 @@ export function WishItemCard({
           <button type="button" disabled={isReviewing} onClick={() => onReview(false)}>
             やめておく
           </button>
+          {isReviewing && <span className="spinner" aria-hidden="true" />}
         </div>
       )}
 
@@ -105,7 +106,14 @@ export function WishItemCard({
             </label>
             <div className="wish-item-card__actions">
               <button type="submit" disabled={isPurchasing}>
-                購入済みにする
+                {isPurchasing ? (
+                  <span className="button__pending">
+                    <span className="spinner" aria-hidden="true" />
+                    <span>記録中...</span>
+                  </span>
+                ) : (
+                  '購入済みにする'
+                )}
               </button>
               <button
                 type="button"

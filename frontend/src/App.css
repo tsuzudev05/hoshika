@@ -33,6 +33,48 @@ button {
   border-radius: 6px;
   background: #fff;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+button:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 読み込み中・処理中を表す共通スピナー。各コンポーネントで個別に定義していたものを統合した。 */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #ccc;
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ボタン内でスピナーとテキストを横並びにする（送信中・処理中の表示用） */
+.button__pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .app {
@@ -64,5 +106,21 @@ button {
   .app {
     max-width: 720px;
     padding: 2rem;
+  }
+}
+
+/* アニメーションの低減を希望するユーザー向け（スピナーは状態を伝える情報なので回転だけ残す） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .spinner {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
   }
 }

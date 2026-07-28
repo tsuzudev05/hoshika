@@ -36,7 +36,7 @@ export function WishItemList() {
   if (isPending) {
     return (
       <div className="wish-item-list__status" role="status" aria-live="polite">
-        <span className="wish-item-list__spinner" aria-hidden="true" />
+        <span className="spinner" aria-hidden="true" />
         <span>読み込み中...</span>
       </div>
     )

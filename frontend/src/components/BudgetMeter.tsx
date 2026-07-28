@@ -18,7 +18,7 @@ export function BudgetMeter() {
   if (isPending) {
     return (
       <div className="budget-meter__status" role="status" aria-live="polite">
-        <span className="budget-meter__spinner" aria-hidden="true" />
+        <span className="spinner" aria-hidden="true" />
         <span>読み込み中...</span>
       </div>
     )

@@ -35,21 +35,6 @@
   margin-bottom: 1rem;
 }
 
-.add-wish-item-form__spinner {
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid #ccc;
-  border-top-color: #333;
-  border-radius: 50%;
-  animation: add-wish-item-form-spin 0.8s linear infinite;
-}
-
-@keyframes add-wish-item-form-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .add-wish-item-form__error {
   color: #b00020;
   margin: 0;
