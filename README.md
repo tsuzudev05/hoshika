@@ -31,7 +31,8 @@
 | **フロントエンド** | React + TypeScript（Vite + TanStack Query）。APIエラーは`ApiError`で型付けし、想定内(4xx)/想定外(5xx)を呼び分ける |
 | **DB** | PostgreSQL。マイグレーションは起動時に自動適用（`sqlx::migrate!`） |
 | **品質・運用** | Playwright E2E（5シナリオ）・Sentry（インフラ層エラーのみ通知）・CI（Rust/Frontend/E2E）・Lighthouse計測済み |
-| **現状のスコープ外** | ユーザー登録・ログイン画面（JWTは`user_id`を渡せば発行できる簡易実装）、本番デプロイ（Fly.io設定は準備済みだが未実行） |
+| **本番環境** | https://hoshika.fly.dev （Fly.io、東京/nrtリージョン。DBはSupabase） |
+| **現状のスコープ外** | ユーザー登録・ログイン画面（JWTは`user_id`を渡せば発行できる簡易実装） |
 
 ---
 

@@ -15,13 +15,14 @@ Rust（Axum + SQLx）と React + TypeScript で実装した「欲しいものリ
 ### ホシカ（欲しいものリスト × 予算管理アプリ）
 
 **リポジトリ**: https://github.com/tsuzudev05/hoshika
+**デモ**: https://hoshika.fly.dev
 
 衝動買いを防ぐため「登録した瞬間は買えない（Inbox状態）」というドメインルールを持つアプリ。欲しいものを一度リストに入れてレビューを挟み、「本当に欲しいか」を確認してから購入できる仕組み。
 
 **技術スタック**
 - Backend: Rust（Axum + SQLx）
 - Frontend: React + TypeScript（Vite + TanStack Query）
-- DB: PostgreSQL / Infrastructure: Fly.io（設定済み・本番デプロイ準備完了）
+- DB: PostgreSQL（Supabase） / Infrastructure: Fly.io（東京リージョン）
 
 **設計上の特徴**
 

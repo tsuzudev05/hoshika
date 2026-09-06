@@ -178,21 +178,30 @@ npm run test:e2e
 ネストされる（`STATIC_DIR` 環境変数が設定されている時だけ有効になり、ローカル/CI では未設定
 のため従来通り API はルート直下で動く。`src/main.rs` 参照）。
 
+> 個人利用で意図しない課金を避けるための注意点は [fly-io-billing-notes.md](./fly-io-billing-notes.md) を参照。
+
 ### 初回セットアップ（アカウントに紐づく操作のため、Fly.io アカウントを持つ本人が手元で実行）
+
+DBはFly Postgres（自動停止せず常時課金対象になる）を避け、Supabase（無料枠）を使う構成にしている。
+Fly appとリージョンを揃えたい場合はSupabaseプロジェクト作成時に`fly.toml`の`primary_region`と同じ
+リージョン（ホシカ本番は東京/`ap-northeast-1`）を選ぶ。個人利用で課金を避けるための注意点全般は
+[fly-io-billing-notes.md](./fly-io-billing-notes.md)を参照。
 
 ```bash
 # flyctl のインストール（未導入の場合）
 curl -L https://fly.io/install.sh | sh
 
-# 1. アプリを作成する（fly.toml の app 名を実際のものに更新すること）
+# 1. アプリを作成する（fly.toml の app 名を実際のものに更新すること。
+#    Postgresを聞かれたら作成しない = No を選ぶ）
 fly launch --no-deploy
 
-# 2. Postgres を作成してアタッチする（DATABASE_URL が自動で secrets に設定される）
-fly postgres create
-fly postgres attach <postgres-app-name>
+# 2. Supabase（https://supabase.com）でプロジェクトを作成し、
+#    Connect → Transaction pooler の接続文字列を取得してDATABASE_URLとして設定する
+#    （min_machines_running=0で接続が頻繁に張り直されるため、直接接続ではなくpoolerを使う）
+fly secrets set DATABASE_URL="postgresql://postgres.xxxxx:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres"
 
 # 3. JWT_SECRET を設定する（本番用の値。開発用のデフォルト鍵は使わないこと）
-fly secrets set JWT_SECRET=<本番用の秘密鍵>
+fly secrets set JWT_SECRET=$(openssl rand -hex 32)
 
 # 4.（任意）Sentryでのエラートラッキングを有効化する場合、バックエンド用のDSNを設定する
 fly secrets set SENTRY_DSN=<SentryプロジェクトのDSN>
@@ -200,6 +209,11 @@ fly secrets set SENTRY_DSN=<SentryプロジェクトのDSN>
 
 GitHub リポジトリの **Settings → Secrets and variables → Actions** に `FLY_API_TOKEN` を登録する
 （`fly tokens create deploy` で発行したトークンを使う）。
+
+> `Dockerfile`のビルドステージは実行ステージ（`debian:bookworm-slim`）とDebianバージョンを揃えるため
+> `rust:1-slim-bookworm`のように明示的に固定すること。フローティングタグ（`rust:1-slim`など
+> バージョン固定なし）を使うと、ビルド時と実行時でglibcのABIがずれて`GLIBC_x.xx' not found`と
+> いうエラーでバイナリが起動できなくなることがある（実際に本番初回デプロイで発生し、固定して解消した）。
 
 > フロントエンド用のSentry（`VITE_SENTRY_DSN`）はViteがビルド時に静的に埋め込むため、
 > `fly secrets`（実行時の環境変数）では反映されない。有効化する場合は`frontend/.env`に
