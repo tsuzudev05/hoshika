@@ -12,7 +12,11 @@ RUN npm run build
 # sqlx はここで sqlx::query()（実行時チェック）のみを使用しており、
 # sqlx::query! 系のコンパイル時チェックマクロは使っていないため、
 # ビルド時に DATABASE_URL や稼働中の DB は不要。
-FROM rust:1-slim AS rust-build
+#
+# rust:1-slim（バージョン固定なしのタグ）ではなく実行ステージと同じ bookworm を明示する。
+# 両者のDebianバージョンがずれるとglibcのABIが合わなくなり、
+# 実行時に `GLIBC_2.38' not found のようなエラーでバイナリが起動できなくなるため。
+FROM rust:1-slim-bookworm AS rust-build
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src/ ./src/
