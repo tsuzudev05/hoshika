@@ -41,7 +41,11 @@
 ### Phase 07 · 11月　リリース
 
 - [ ] **ユーザーテスト** — 身近な人に使ってもらいフィードバック収集（Phase 06から繰り越し）
-- [ ] **本番環境デプロイ** — Fly.io本番環境・ドメイン設定（Phase 05で保留した`Fly.ioデプロイ`の再開が前提）
+- [x] **本番環境デプロイ** — Fly.io本番環境・ドメイン設定（Phase 05で保留した`Fly.ioデプロイ`の再開が前提）
+  - Fly.ioアプリ`hoshika`（東京/nrtリージョン）を作成。DBはFly Postgres（常時起動で課金対象になる）を避け、Supabase（東京/ap-northeast-1リージョン、Transaction pooler接続）を採用しリージョンをFlyと揃えた
+  - `DATABASE_URL`（Supabase接続文字列）・`JWT_SECRET`（`openssl rand -hex 32`で生成）を`fly secrets set`で設定。GitHub Actions用の`FLY_API_TOKEN`もリポジトリシークレットに登録し、`main`へのpushで`fly-deploy.yml`が自動デプロイする状態にした
+  - 初回デプロイでバイナリが`GLIBC_2.38' not found`でクラッシュループする障害が発生。`Dockerfile`のビルドステージが`rust:1-slim`というバージョン固定なしのタグを使っており、実行ステージの`debian:bookworm-slim`とDebianバージョンがずれてglibcのABIが不整合になっていたのが原因。`rust:1-slim-bookworm`に固定して解消
+  - 本番URL（https://hoshika.fly.dev）で実機確認: `/`が200、`/api/health`が`{"status":"ok"}`、認証必須の`/api/categories`が401（未ログイン時の想定通りの挙動）を返すことを確認し、DB接続・JWT認証とも本番で正常動作することを確認　完了（2026-09-06）
 - [ ] **バグ修正・安定化** — Sentry活用
 - [x] **ポートフォリオ掲載** — 転職活動用のプロジェクト説明文（アーキテクチャの工夫を中心に）
   - `portfolio.md`を作成。ショート版（200字）・ミディアム版（500字・GitHub README向け）・ロング版（技術面接向け）の3段階で記述　完了（2026-09-03）
@@ -51,12 +55,11 @@
 
 > 大部分は完了 → [TASKS-phase05.md](./TASKS-phase05.md) 参照。以下はアカウントに紐づく判断待ちのため保留中。
 
-- [ ] **Fly.ioデプロイ** — ステージング環境・自動デプロイ（**保留・後回し**）
+- [x] **Fly.ioデプロイ** — ステージング環境・自動デプロイ
   - 設定ファイル一式を作成済み: `Dockerfile`（フロントエンドビルド→Rustビルド→実行イメージの3段階）・`.dockerignore`・`fly.toml`・`.github/workflows/fly-deploy.yml`（`main`へのpushで自動デプロイ）
   - `src/main.rs`に`STATIC_DIR`環境変数による分岐を追加。設定時のみAxumバイナリが`frontend/dist`を静的配信し、APIを`/api`配下にネストする（未設定のローカル/CIでは従来通りAPIがルート直下のまま動作し、既存のE2E・CIには一切影響しない）
   - ローカルで`STATIC_DIR`未設定/設定済みの両方を実機確認（`/health`・`/api/health`・`/`・静的アセット配信）。`cargo test`101件も通過を確認
-  - この環境にはFly.ioアカウント認証・`flyctl`がないため、実際の`fly launch`（アプリ作成）・`fly postgres create`・`fly secrets set`・GitHub Secretsへの`FLY_API_TOKEN`登録はユーザー自身が行う必要がある（手順は[DEVELOPMENT.md](./DEVELOPMENT.md#デプロイflyio)に記載）。`docker build`自体もこの環境にDockerがないため未実行・未検証
-  - ユーザー環境（WSL2）で`fly launch --no-deploy`実行時にIPv6経路不良による接続エラーが発生し解消済み。その後Fly.io側からアカウント確認（クレジットカード登録）を要求されたが、従量課金の発生条件（Postgresは自動停止しないため常時課金対象になる等）を精査してから登録するか判断したいとのことで、一旦保留（2026-07-19）
+  - 従量課金の懸念（Fly Postgresは自動停止せず常時課金対象になる）を検討した結果、DBはFly Postgresを使わずSupabase（無料枠・東京リージョン）を採用する方針に決定。Fly.io側もクレジットカード登録（デビットカードで対応）・`fly launch`・シークレット設定を実施し、本番デプロイまで完了（詳細は上記「本番環境デプロイ」参照）　完了（2026-09-06）
 
 ### 学習（並行）
 
