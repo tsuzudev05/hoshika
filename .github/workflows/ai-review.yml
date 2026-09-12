@@ -71,6 +71,16 @@ jobs:
           fi
           echo "diff lines: $(wc -l < diff.txt)"
 
+      # PRブランチ自体が古い場合、scripts/ai_review.pyも古いままになっている可能性がある
+      # （例: Groqのモデル名変更のようなスクリプト側の修正がPRブランチ作成後にmainへ入った場合）。
+      # レビュー対象のdiffはPRブランチのものを使いつつ、実行するスクリプトは常にmainの最新版に
+      # 差し替えることで、この種の「古いブランチで再現する」不具合を避ける
+      # （auto-pr.ymlの「scripts always from main」と同じ方針）。
+      - name: Use latest review script from main
+        run: |
+          git fetch origin main
+          git show origin/main:scripts/ai_review.py > scripts/ai_review.py
+
       - name: Run AI Review
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

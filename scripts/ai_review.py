@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ai_review.py — PR diff を Groq（Llama 3.3 70B）に渡してコードレビューを生成し、
+ai_review.py — PR diff を Groq（GPT-OSS 120B）に渡してコードレビューを生成し、
                GitHub PR にコメントとして投稿するスクリプト。
 
-Groq 無料枠: 14,400 req/日・30 RPM（クレジットカード不要）
+Groq 無料枠（openai/gpt-oss-120b）: 1,000 req/日・30 RPM・8,000 TPM（クレジットカード不要）
 
 Usage (GitHub Actions から呼ばれる):
     python scripts/ai_review.py
@@ -32,11 +32,15 @@ from groq import Groq
 
 DIFF_FILE = "diff.txt"
 USAGE_FILE = ".monthly-usage.json"
-MAX_DIFF_CHARS = 8_000  # Groq 無料枠 12,000 TPM（system prompt が ~6000 tokens 消費するため余裕を持たせる）
-MODEL = "llama-3.3-70b-versatile"
+MAX_DIFF_CHARS = 4_000  # openai/gpt-oss-120bの無料枠は8,000 TPM。system prompt+diff+出力(max_tokens=2048)の
+# 合計が1リクエストでこの枠に収まる必要があるため、旧モデル(12,000 TPM)時代の8,000から縮小した
+# llama-3.3-70b-versatile はGroqが2026-06-17に廃止発表・2026-08-16に無料/開発者ティアでの
+# 提供終了（404 model_not_found の原因）。Groq公式の移行先推奨に従いopenai/gpt-oss-120bに変更。
+MODEL = "openai/gpt-oss-120b"
 
-PRICE_INPUT_PER_MTOK = 0.59
-PRICE_OUTPUT_PER_MTOK = 0.79
+# Groq料金ページのopenai/gpt-oss-120b単価（$/1Mトークン）
+PRICE_INPUT_PER_MTOK = 0.15
+PRICE_OUTPUT_PER_MTOK = 0.60
 
 MONTHLY_BUDGET_USD = 1.00
 BUDGET_WARN_RATIO = 0.80
@@ -144,7 +148,7 @@ Pull Request の diff をレビューし、以下の観点で日本語でフィ�
 
 ## 出力フォーマット（Markdown）
 
-## 🤖 AI コードレビュー（Llama 3.3 70B / Groq）
+## 🤖 AI コードレビュー（GPT-OSS 120B / Groq）
 
 ### 概要
 （PR で何をしているかを 2〜3 行で要約）
@@ -162,7 +166,7 @@ Pull Request の diff をレビューし、以下の観点で日本語でフィ�
 （一言でマージ可否の判断：LGTM / 要修正 / 要確認）
 
 ---
-*このレビューは Llama 3.3 70B（Groq）によって自動生成されました。*
+*このレビューは GPT-OSS 120B（Groq）によって自動生成されました。*
 """
 
 
@@ -197,7 +201,7 @@ def generate_review(
     diff: str, pr_title: str, base: str, head: str
 ) -> tuple[str, int, int]:
     """
-    Groq（Llama 3.3 70B）を呼び出してレビューを生成する。
+    Groq（GPT-OSS 120B）を呼び出してレビューを生成する。
     戻り値: (レビュー本文, input_tokens, output_tokens)
     """
     client = Groq(api_key=sanitize_api_key(os.environ["GROQ_API_KEY"]))
