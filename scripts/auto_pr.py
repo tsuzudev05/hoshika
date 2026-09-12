@@ -29,7 +29,10 @@ from groq import Groq
 # ─── 設定 ────────────────────────────────────────────────────────────────────
 
 DIFF_FILE = "diff.txt"
-MAX_DIFF_CHARS = 20_000
+# openai/gpt-oss-120bの無料枠は8,000 TPM（トークン/分）。system prompt + commit log + diff +
+# 出力(max_tokens=1500、JSON生成のため途中で切れるとパース失敗するのでこちらは削らない)の
+# 合計が1リクエストでこの枠に収まる必要があるため、旧モデル時代の20,000から縮小した。
+MAX_DIFF_CHARS = 5_000
 MODEL = "openai/gpt-oss-120b"
 # マージ先は常に main 固定。ワークフロー側の入力や環境変数では変更できないようにする。
 BASE_BRANCH = "main"
