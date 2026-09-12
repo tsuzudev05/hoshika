@@ -49,12 +49,21 @@ async fn main() -> anyhow::Result<()> {
     // （またはdirect connection）を指す接続文字列にすること。詳細はDEVELOPMENT.md参照。
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
+    // DB接続・マイグレーション失敗はここで`?`によりmain()から早期returnするだけでは
+    // tracing::error!を経由しないためSentryに送信されない（handlers/mod.rsの
+    // 「unexpected error」ログと違い、この2箇所は明示的にログを出す必要がある）。
+    // 実際に本番でこの種の起動失敗（GLIBC不整合・PgBouncer prepared statement衝突）が
+    // 発生した際、Sentryでは検知できず気づくのが遅れた経験から追加した。
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
-        .await?;
+        .await
+        .inspect_err(|e| tracing::error!(error = %e, "failed to connect to database"))?;
 
-    sqlx::migrate!("./migrations").run(&pool).await?;
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .inspect_err(|e| tracing::error!(error = %e, "failed to run database migrations"))?;
 
     let api_router = presentation::router::create_router(pool);
 
