@@ -30,7 +30,7 @@ from groq import Groq
 
 DIFF_FILE = "diff.txt"
 MAX_DIFF_CHARS = 20_000
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 # マージ先は常に main 固定。ワークフロー側の入力や環境変数では変更できないようにする。
 BASE_BRANCH = "main"
 
