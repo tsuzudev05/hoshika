@@ -5,8 +5,7 @@ mod presentation;
 
 use axum::Router;
 use dotenvy::dotenv;
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use std::str::FromStr;
+use sqlx::postgres::PgPoolOptions;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -44,20 +43,15 @@ async fn main() -> anyhow::Result<()> {
         .with(sentry::integrations::tracing::layer())
         .init();
 
+    // Supabaseの共有プーラー(Supavisor)はTransaction modeでprepared statementを
+    // 一切サポートしない（PgBouncerと違いキャッシュ設定では回避できない）。sqlxは
+    // 常に名前付きprepared statementを使うため、DATABASE_URLは必ずSession pooler
+    // （またはdirect connection）を指す接続文字列にすること。詳細はDEVELOPMENT.md参照。
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
-    // 本番ではSupabaseのTransaction pooler（PgBouncer）経由で接続している。
-    // sqlxはデフォルトでprepared statementを名前付きでキャッシュ・再利用するが、
-    // transaction pooling modeはトランザクション単位でクライアントを異なる実DB接続へ
-    // 割り当てるため、同じ名前のprepared statementが別接続で衝突し
-    // 「prepared statement "sqlx_s_N" already exists」で失敗することがある。
-    // statement_cache_capacity(0)でキャッシュを無効化し、常に無名のprepared statementを
-    // 使うことでこの非互換を回避する（PgBouncer transaction modeでの既知の対処法）。
-    let connect_options = PgConnectOptions::from_str(&database_url)?.statement_cache_capacity(0);
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect_with(connect_options)
+        .connect(&database_url)
         .await?;
 
     sqlx::migrate!("./migrations").run(&pool).await?;
